@@ -359,55 +359,188 @@ textarea {
 }
 
 /* ═══════════════════════════════════════════════
-   MOOD SELECTOR
+   MOOD SELECTOR — atmospheric cards
 ═══════════════════════════════════════════════ */
 
-.mood-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.mood-btn {
+.mood-screen {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  padding: 18px 16px;
-  background: var(--bg-card);
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-md);
-  text-align: left;
-  transition: all var(--transition);
+  gap: 20px;
 }
 
-.mood-btn:hover {
-  border-color: var(--border-hover);
-  background: var(--bg-elevated);
-  transform: translateY(-1px);
+.mood-screen-header {
+  text-align: center;
 }
 
-.mood-btn.selected {
-  border-color: var(--accent);
-  background: rgba(139, 92, 246, 0.08);
-  box-shadow: 0 0 0 3px var(--accent-glow);
-}
-
-.mood-emoji {
-  font-size: 28px;
-  line-height: 1;
-}
-
-.mood-label {
-  font-size: 14px;
-  font-weight: 700;
+.mood-screen-title {
+  font-size: 18px;
+  font-weight: 800;
   color: var(--text-primary);
-  line-height: 1.3;
+  line-height: 1.35;
+  margin: 0 0 6px;
 }
 
-.mood-desc {
+.mood-title-accent {
+  color: var(--accent);
+}
+
+.mood-screen-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.mood-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.mood-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  aspect-ratio: 3 / 4;
+  cursor: pointer;
+  border: 1.5px solid rgba(255, 255, 255, 0.07);
+  background: #06060f;
+  padding: 0;
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.mood-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.mood-card:hover {
+  transform: scale(1.03);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.mood-card-selected {
+  border-color: rgba(167, 139, 250, 0.85) !important;
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.4), 0 0 28px rgba(139, 92, 246, 0.25);
+}
+
+/* Content pinned to bottom */
+.mood-card-content {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 10px 10px 12px;
+  background: linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.45) 55%, transparent 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  z-index: 2;
+}
+
+.mood-card-badge {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  margin-bottom: 4px;
+  flex-shrink: 0;
+}
+
+.mood-card-label {
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.mood-card-desc {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.58);
+  line-height: 1.45;
+  white-space: pre-line;
+}
+
+.mood-screen-hint {
   font-size: 11px;
   color: var(--text-muted);
+  text-align: center;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ── Atmospheric gradients per mood ── */
+
+.mood-bg-laugh::before {
+  background:
+    radial-gradient(ellipse at 55% 28%, rgba(218, 130, 8, 0.92) 0%, rgba(170, 55, 6, 0.68) 32%, transparent 62%),
+    radial-gradient(ellipse at 15% 72%, rgba(185, 75, 6, 0.42) 0%, transparent 45%),
+    linear-gradient(180deg, #1c0902 0%, #0a0200 100%);
+}
+.mood-badge-laugh {
+  background: rgba(245, 158, 11, 0.25);
+  border: 1.5px solid rgba(245, 158, 11, 0.65);
+}
+
+.mood-bg-scared::before {
+  background:
+    radial-gradient(ellipse at 50% 14%, rgba(75, 112, 195, 0.80) 0%, rgba(28, 50, 105, 0.58) 28%, transparent 58%),
+    radial-gradient(ellipse at 75% 70%, rgba(15, 25, 70, 0.35) 0%, transparent 45%),
+    linear-gradient(180deg, #03081a 0%, #010306 100%);
+}
+.mood-badge-scared {
+  background: rgba(109, 40, 217, 0.28);
+  border: 1.5px solid rgba(130, 60, 230, 0.65);
+}
+
+.mood-bg-moved::before {
+  background:
+    radial-gradient(ellipse at 72% 72%, rgba(225, 82, 28, 0.88) 0%, rgba(175, 35, 80, 0.68) 32%, transparent 62%),
+    radial-gradient(ellipse at 18% 22%, rgba(105, 15, 55, 0.38) 0%, transparent 48%),
+    linear-gradient(180deg, #1a0310 0%, #0c0208 100%);
+}
+.mood-badge-moved {
+  background: rgba(236, 72, 153, 0.28);
+  border: 1.5px solid rgba(236, 72, 153, 0.68);
+}
+
+.mood-bg-escape::before {
+  background:
+    radial-gradient(ellipse at 50% 22%, rgba(18, 78, 128, 0.85) 0%, rgba(8, 48, 80, 0.62) 38%, transparent 68%),
+    radial-gradient(ellipse at 82% 78%, rgba(12, 72, 52, 0.45) 0%, transparent 42%),
+    linear-gradient(180deg, #010e1a 0%, #000910 100%);
+}
+.mood-badge-escape {
+  background: rgba(13, 148, 136, 0.28);
+  border: 1.5px solid rgba(13, 180, 160, 0.65);
+}
+
+.mood-bg-mindbending::before {
+  background:
+    radial-gradient(ellipse at 50% 52%, rgba(95, 22, 178, 0.95) 0%, rgba(52, 10, 115, 0.72) 30%, rgba(22, 6, 65, 0.42) 55%, transparent 72%),
+    radial-gradient(ellipse at 22% 18%, rgba(62, 15, 125, 0.32) 0%, transparent 38%),
+    linear-gradient(165deg, #070118 0%, #020010 100%);
+}
+.mood-badge-mindbending {
+  background: rgba(109, 40, 217, 0.28);
+  border: 1.5px solid rgba(140, 80, 255, 0.68);
+}
+
+.mood-bg-surprised::before {
+  background:
+    radial-gradient(ellipse at 50% 60%, rgba(175, 22, 248, 0.97) 0%, rgba(115, 10, 185, 0.78) 26%, rgba(62, 6, 118, 0.48) 50%, transparent 68%),
+    radial-gradient(ellipse at 72% 22%, rgba(205, 55, 255, 0.22) 0%, transparent 33%),
+    linear-gradient(180deg, #090018 0%, #050012 100%);
+}
+.mood-badge-surprised {
+  background: rgba(99, 102, 241, 0.28);
+  border: 1.5px solid rgba(140, 120, 255, 0.68);
 }
 
 /* ═══════════════════════════════════════════════
