@@ -140,12 +140,30 @@ export function RecommendationCard({ item, rank, profile, onAction, onUndo, onSa
         <div className="card-meta">
           <h3 className="card-title">{item.title}</h3>
           <div className="card-tags-row">
-            <span className="card-tag card-tag-platform">{item.platforms[0]}</span>
+            {item.availableOn && item.availableOn.length > 0 ? (
+              item.availableOn.map(p => (
+                <span key={p} className="card-tag card-tag-platform card-tag-live">{p}</span>
+              ))
+            ) : (
+              <span className="card-tag card-tag-platform">{item.platforms[0]}</span>
+            )}
             <span className="card-tag card-tag-duration">{durationLabel}</span>
+            {item.voteAverage && item.voteAverage > 0 && (
+              <span className="card-tag card-tag-rating">
+                ★ {item.voteAverage.toFixed(1)}
+              </span>
+            )}
           </div>
+          {item.fromTMDB && (
+            <span className="card-tmdb-badge">via TMDB</span>
+          )}
         </div>
 
-        <p className="card-atmosphere">{item.atmosphere}</p>
+        <p className="card-atmosphere">
+          {item.overview
+            ? (item.overview.length > 150 ? item.overview.slice(0, 147) + '…' : item.overview)
+            : item.atmosphere}
+        </p>
 
         <div className="score-bars">
           <ScoreBar label="Mystère" value={item.mysteryScore} color="#8B5CF6" />

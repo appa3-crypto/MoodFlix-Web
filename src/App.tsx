@@ -23,6 +23,7 @@ import { HistoryPage } from './components/HistoryPage';
 import { Navigation } from './components/Navigation';
 import { useUserProfile } from './hooks/useUserProfile';
 import { getTopRecommendations, getQuickRecommendations } from './utils/recommendationEngine';
+import { discoverContent, enrichItem } from './services/tmdbService';
 import type { ScoredRecommendation } from './types';
 import rawData from './data/recommendations.json';
 
@@ -71,6 +72,10 @@ export default function App() {
   const [quickExcludedIds, setQuickExcludedIds] = useState<number[]>([]);
   // Store quick vibe for "Proposer autre chose" in quick mode
   const [lastQuickVibe, setLastQuickVibe] = useState<QuickVibe>('surprising');
+  // V3 — TMDB discover pool (used to supplement curated catalog)
+  const [tmdbPool, setTmdbPool] = useState<Recommendation[]>([]);
+  // V3 — true while TMDB async pipeline is running
+  const [isSearching, setIsSearching] = useState(false);
 
   const goTo = useCallback((next: Step) => {
     setAnimating(true);
@@ -157,34 +162,49 @@ export default function App() {
     goTo('platform');
   }
 
-  // ── REFERENCES → RESULTS ──
-  function handleReferences(references: string) {
+  // ── REFERENCES → RESULTS (async — TMDB discover + enrich) ──
+  async function handleReferences(references: string) {
     const updated = { ...choices, references };
     setChoices(updated);
     setIsQuickMode(false);
     setExcludedIds([]);
+    setIsSearching(true);
+    setResults([]);
+    goTo('results');
 
-    const tops = getTopRecommendations(ALL_ITEMS, updated, profile, 3, []);
-    setResults(tops);
+    // 1. Discover additional items from TMDB
+    const curatedTitles = ALL_ITEMS.map(i => i.title);
+    const tmdbItems = await discoverContent(updated, curatedTitles);
+    setTmdbPool(tmdbItems);
 
-    // Persist search preferences + recommendation history
+    // 2. Score curated + TMDB pool together
+    const allItems = [...ALL_ITEMS, ...tmdbItems];
+    const tops = getTopRecommendations(allItems, updated, profile, 3, []);
+
+    // 3. Persist preferences + history
     recordPreferences(updated.type ?? 'both', updated.duration, updated.platforms);
     if (tops.length > 0) {
       recordRecommendedHistory(
         tops.map(item => ({
-          itemId: item.id,
-          title: item.title,
-          date: new Date().toISOString(),
-          mood: updated.mood,
+          itemId: item.id, title: item.title,
+          date: new Date().toISOString(), mood: updated.mood,
         }))
       );
     }
 
-    goTo('results');
+    // 4. Show results immediately with curated/existing data
+    setResults(tops);
+    setIsSearching(false);
+
+    // 5. Enrich top results with TMDB (poster, overview, rating, providers)
+    const enriched = await Promise.all(
+      tops.map(item => enrichItem(item).then(e => ({ ...item, ...e })))
+    );
+    setResults(enriched as ScoredRecommendation[]);
   }
 
   // ── SUGGEST OTHER (same criteria, different results) ──
-  function handleSuggestOther() {
+  async function handleSuggestOther() {
     if (isQuickMode) {
       const newExcluded = [...quickExcludedIds, ...results.map(r => r.id)];
       setQuickExcludedIds(newExcluded);
@@ -193,28 +213,30 @@ export default function App() {
       if (tops.length > 0) {
         recordRecommendedHistory(
           tops.map(item => ({
-            itemId: item.id,
-            title: item.title,
-            date: new Date().toISOString(),
-            mood: null,
+            itemId: item.id, title: item.title,
+            date: new Date().toISOString(), mood: null,
           }))
         );
       }
     } else {
       const newExcluded = [...excludedIds, ...results.map(r => r.id)];
       setExcludedIds(newExcluded);
-      const tops = getTopRecommendations(ALL_ITEMS, choices, profile, 3, newExcluded);
+      const allItems = [...ALL_ITEMS, ...tmdbPool];
+      const tops = getTopRecommendations(allItems, choices, profile, 3, newExcluded);
       setResults(tops);
       if (tops.length > 0) {
         recordRecommendedHistory(
           tops.map(item => ({
-            itemId: item.id,
-            title: item.title,
-            date: new Date().toISOString(),
-            mood: choices.mood,
+            itemId: item.id, title: item.title,
+            date: new Date().toISOString(), mood: choices.mood,
           }))
         );
       }
+      // Enrich new suggestions
+      const enriched = await Promise.all(
+        tops.map(item => enrichItem(item).then(e => ({ ...item, ...e })))
+      );
+      setResults(enriched as ScoredRecommendation[]);
     }
   }
 
@@ -256,6 +278,8 @@ export default function App() {
     setPlatformEditMode(false);
     setExcludedIds([]);
     setQuickExcludedIds([]);
+    setTmdbPool([]);
+    setIsSearching(false);
     goTo('home');
   }
 
@@ -482,6 +506,7 @@ export default function App() {
             choices={choices}
             profile={profile}
             isQuickMode={isQuickMode}
+            isSearching={isSearching}
             onRestart={handleRestart}
             onAction={handleAction}
             onUndo={handleUndo}

@@ -6,6 +6,7 @@ interface Props {
   choices: UserChoices;
   profile: UserProfile | null;
   isQuickMode: boolean;
+  isSearching?: boolean;
   onRestart: () => void;
   onAction: (itemId: number, action: 'like' | 'seen' | 'dislike' | 'too-long') => void;
   onUndo: (itemId: number) => void;
@@ -27,6 +28,7 @@ export function ResultsPage({
   choices,
   profile,
   isQuickMode,
+  isSearching = false,
   onRestart,
   onAction,
   onUndo,
@@ -42,6 +44,14 @@ export function ResultsPage({
       <div className="results-header">
         <div className="results-logo">MoodFlix</div>
 
+        {/* TMDB searching indicator */}
+        {isSearching && (
+          <div className="results-searching-banner">
+            <span className="results-searching-dot" />
+            Recherche TMDB en cours…
+          </div>
+        )}
+
         {isQuickMode ? (
           <p className="results-quick-badge">🎲 Mode &quot;Je sais pas&quot;</p>
         ) : moodLabel ? (
@@ -51,7 +61,9 @@ export function ResultsPage({
         ) : null}
 
         <h2 className="results-title">
-          {hasResults ? (
+          {isSearching && !hasResults ? (
+            <span className="results-accent">Recherche en cours…</span>
+          ) : hasResults ? (
             <>
               {name ? `Pour toi, ${name} — ` : 'Ce soir, '}
               <span className="results-accent">
@@ -63,14 +75,20 @@ export function ResultsPage({
           )}
         </h2>
 
-        {!hasResults && (
+        {!hasResults && !isSearching && (
           <p className="results-empty">
             Tu as vu ou refusé tous les contenus correspondants. Reviens après avoir regardé quelques suggestions !
           </p>
         )}
       </div>
 
-      {hasResults && (
+      {isSearching && !hasResults ? (
+        <div className="results-loading-cards">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="card-skeleton" />
+          ))}
+        </div>
+      ) : hasResults ? (
         <div className="results-cards">
           {results.map((item, i) => (
             <RecommendationCard
@@ -84,7 +102,7 @@ export function ResultsPage({
             />
           ))}
         </div>
-      )}
+      ) : null}
 
       <div className="results-footer">
         {hasResults && (
@@ -97,10 +115,10 @@ export function ResultsPage({
         </button>
         <p className="results-footer-text">
           {profile
-            ? 'Recommandations personnalisées · variété automatique'
+            ? 'Recommandations personnalisées · TMDB enrichi'
             : 'Recommandations basées sur tes choix du moment.'}
           <br />
-          <span className="results-footer-sub">MoodFlix V2 — Données locales</span>
+          <span className="results-footer-sub">MoodFlix V3 — Données locales + TMDB</span>
         </p>
       </div>
     </div>

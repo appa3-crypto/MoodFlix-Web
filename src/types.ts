@@ -34,6 +34,12 @@ export interface Recommendation {
   posterColor: string;
   posterEmoji: string;
   posterUrl?: string;
+  // V3 — TMDB enrichment fields
+  tmdbId?: number;
+  overview?: string;
+  voteAverage?: number;
+  availableOn?: string[];
+  fromTMDB?: boolean;
 }
 
 export interface ScoredRecommendation extends Recommendation {

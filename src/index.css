@@ -2420,3 +2420,99 @@ textarea {
   font-size: 13px;
   color: var(--text-muted);
 }
+
+/* ═══════════════════════════════════════════════
+   V3 — TMDB ENRICHMENT STYLES
+═══════════════════════════════════════════════ */
+
+/* Searching banner */
+.results-searching-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(139, 92, 246, 0.08);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  color: var(--accent-light);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 99px;
+  width: fit-content;
+  margin: 0 auto 8px;
+}
+
+.results-searching-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 1.2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+/* Skeleton cards while searching */
+.results-loading-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0 20px;
+}
+
+.card-skeleton {
+  height: 360px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(
+    90deg,
+    var(--bg-card) 25%,
+    var(--bg-elevated) 50%,
+    var(--bg-card) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border: 1px solid var(--border);
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* TMDB rating tag */
+.card-tag-rating {
+  background: rgba(245, 158, 11, 0.12);
+  color: rgba(253, 230, 138, 0.95);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* Live provider tag (real-time from TMDB) */
+.card-tag-live {
+  position: relative;
+}
+
+.card-tag-live::before {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--success);
+  margin-right: 4px;
+  vertical-align: middle;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* TMDB source badge */
+.card-tmdb-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-top: 4px;
+}
