@@ -1,10 +1,8 @@
-// Vercel serverless function — moteur d'explication IA
-// AI_API_KEY est UNIQUEMENT accessible côté serveur (process.env)
+// Vercel serverless function — moteur d'explication IA (Google Gemini)
+// GEMINI_API_KEY est UNIQUEMENT accessible côté serveur (process.env)
 // Elle n'est jamais envoyée au navigateur
 
-const AI_API_KEY     = process.env.AI_API_KEY ?? '';
-const ANTHROPIC_URL  = 'https://api.anthropic.com/v1/messages';
-const MODEL          = 'claude-haiku-4-5-20251001';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? '';
 
 const MOOD_LABELS: Record<string, string> = {
   'mind-bending': 'retourner le cerveau',
@@ -62,7 +60,7 @@ Contenu :
 ${item.overview ? `- Synopsis : ${item.overview.slice(0, 200)}` : ''}
 ${item.voteAverage ? `- Note TMDB : ${item.voteAverage.toFixed(1)}/10` : ''}
 
-Génère une explication personnalisée. Réponds UNIQUEMENT en JSON valide (aucun texte avant ou après) :
+Réponds UNIQUEMENT avec ce JSON (aucun texte avant ou après) :
 {
   "explanation": "phrase engageante max 130 caractères qui s'adresse directement à ${b.pseudo}",
   "reasons": ["raison concise 1", "raison concise 2", "raison concise 3"],
@@ -79,7 +77,7 @@ export default async function handler(req: any, res: any) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' });
 
-  if (!AI_API_KEY) {
+  if (!GEMINI_API_KEY) {
     return res.status(503).json({ error: 'no_ai_key' });
   }
 
@@ -89,31 +87,33 @@ export default async function handler(req: any, res: any) {
   }
 
   const prompt = buildPrompt(body);
+  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
 
   try {
-    const apiRes = await fetch(ANTHROPIC_URL, {
+    const apiRes = await fetch(geminiUrl, {
       method: 'POST',
-      headers: {
-        'x-api-key':         AI_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'content-type':      'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model:      MODEL,
-        max_tokens: 400,
-        system:     'Tu es MoodFlix IA. Réponds uniquement en JSON valide, sans markdown ni texte avant ou après.',
-        messages:   [{ role: 'user', content: prompt }],
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        systemInstruction: {
+          parts: [{ text: 'Tu es MoodFlix IA. Réponds uniquement en JSON valide, sans markdown ni texte avant ou après.' }],
+        },
+        generationConfig: {
+          maxOutputTokens:  400,
+          temperature:      0.7,
+          responseMimeType: 'application/json',
+        },
       }),
     });
 
     if (!apiRes.ok) {
       const err = await apiRes.text();
-      console.error('[explain] Anthropic error:', err);
+      console.error('[explain] Gemini error:', err);
       return res.status(502).json({ error: 'upstream_error' });
     }
 
-    const data   = await apiRes.json();
-    const text   = (data?.content?.[0]?.text ?? '').trim();
+    const data = await apiRes.json();
+    const text = (data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '').trim();
 
     try {
       const parsed = JSON.parse(text);
