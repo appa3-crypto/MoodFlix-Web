@@ -2422,6 +2422,262 @@ textarea {
 }
 
 /* ═══════════════════════════════════════════════
+   V4 — IA EXPLANATION + COMPATIBILITY
+═══════════════════════════════════════════════ */
+
+/* Pourquoi pour moi ? button */
+.btn-why {
+  width: 100%;
+  padding: 11px 14px;
+  background: rgba(139, 92, 246, 0.07);
+  border: 1px dashed rgba(139, 92, 246, 0.35);
+  color: var(--accent-light);
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  transition: all var(--transition);
+  margin-top: 2px;
+}
+
+.btn-why:hover:not(:disabled) {
+  background: rgba(139, 92, 246, 0.14);
+  border-color: var(--accent);
+  border-style: solid;
+}
+
+.btn-why-active {
+  background: rgba(139, 92, 246, 0.12);
+  border-style: solid;
+  border-color: var(--accent);
+}
+
+.btn-why-loading {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+/* AI explanation panel */
+.ai-explanation-panel {
+  background: rgba(139, 92, 246, 0.05);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: fadeIn 200ms ease forwards;
+}
+
+.ai-explanation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ai-source-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-light);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.ai-confidence {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.ai-explanation-text {
+  font-size: 14px;
+  color: var(--text-primary);
+  line-height: 1.6;
+  font-style: italic;
+}
+
+.ai-reasons-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ai-reason-item {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.ai-risk-text {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* AI loading dots */
+.ai-loading {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 0;
+}
+
+.ai-loading-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: aiDotPulse 1.2s ease-in-out infinite;
+}
+
+.ai-loading-dot:nth-child(2) { animation-delay: 0.2s; }
+.ai-loading-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes aiDotPulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50%       { opacity: 1;   transform: scale(1.1); }
+}
+
+/* Compatibility badge on card title */
+.card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-title-row .card-title {
+  flex: 1;
+}
+
+.compat-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--success);
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  padding: 2px 8px;
+  border-radius: 99px;
+  white-space: nowrap;
+}
+
+/* Compatibility bar inside AI panel */
+.compat-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.compat-bar-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+  white-space: nowrap;
+  min-width: 110px;
+}
+
+.compat-bar-track {
+  flex: 1;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.compat-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--success));
+  border-radius: 99px;
+  transition: width 600ms ease;
+}
+
+.compat-bar-pct {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+  min-width: 28px;
+  text-align: right;
+}
+
+/* Hidden gem section */
+.hidden-gem-section {
+  margin: 8px 0 16px;
+}
+
+.hidden-gem-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  background: rgba(245, 158, 11, 0.06);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-bottom: none;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  margin: 0 -0px;
+}
+
+.hidden-gem-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+}
+
+.hidden-gem-label {
+  font-size: 15px;
+  font-weight: 800;
+  color: rgba(253, 230, 138, 0.95);
+  letter-spacing: -0.2px;
+}
+
+.hidden-gem-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.hidden-gem-section .card {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+/* Spectator archetype in profile */
+.spectator-archetype {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  background: var(--bg-card);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+
+.archetype-emoji {
+  font-size: 36px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.archetype-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.archetype-label {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.3px;
+}
+
+.archetype-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+/* ═══════════════════════════════════════════════
    V3 — TMDB ENRICHMENT STYLES
 ═══════════════════════════════════════════════ */
 

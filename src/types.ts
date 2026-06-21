@@ -77,6 +77,31 @@ export interface UserProfile {
   createdAt: string;
 }
 
+// V4 — IA explicative
+export interface AIExplanation {
+  explanation: string;
+  reasons:     string[];
+  riskLevel:   string;
+  confidence:  number;
+  isLocal?:    boolean;
+}
+
+// V4 — Profil spectateur
+export type SpectatorArchetype =
+  | 'mystery-explorer'
+  | 'thrill-seeker'
+  | 'emotional-viewer'
+  | 'twist-hunter'
+  | 'light-entertainment'
+  | 'immersive-worlds';
+
+export interface SpectatorProfileInfo {
+  archetype:   SpectatorArchetype;
+  emoji:       string;
+  label:       string;
+  description: string;
+}
+
 export type Step =
   | 'home'
   | 'mood'

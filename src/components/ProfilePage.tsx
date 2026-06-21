@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { UserProfile, ContentType, Duration, Platform } from '../types';
+import { detectSpectatorProfile, hasEnoughData } from '../utils/spectatorProfile';
 
 interface Props {
   profile: UserProfile;
@@ -209,6 +210,23 @@ export function ProfilePage({ profile, onReset, onUpdatePreferences }: Props) {
           </div>
         )}
       </div>
+
+      {/* V4 — Spectator archetype */}
+      {hasEnoughData(profile) && (() => {
+        const arch = detectSpectatorProfile(profile);
+        return (
+          <div className="profile-section">
+            <h2 className="profile-section-title">Ton profil spectateur</h2>
+            <div className="spectator-archetype">
+              <span className="archetype-emoji">{arch.emoji}</span>
+              <div className="archetype-info">
+                <p className="archetype-label">{arch.label}</p>
+                <p className="archetype-desc">{arch.description}</p>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Mood preferences */}
       {topMoods.length > 0 && (

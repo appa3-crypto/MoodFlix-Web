@@ -1,30 +1,32 @@
-import type { ScoredRecommendation, UserChoices, UserProfile, SatisfactionRating } from '../types';
+import type { ScoredRecommendation, UserChoices, UserProfile, SatisfactionRating, Mood } from '../types';
 import { RecommendationCard } from './RecommendationCard';
 
 interface Props {
-  results: ScoredRecommendation[];
-  choices: UserChoices;
-  profile: UserProfile | null;
-  isQuickMode: boolean;
-  isSearching?: boolean;
-  onRestart: () => void;
-  onAction: (itemId: number, action: 'like' | 'seen' | 'dislike' | 'too-long') => void;
-  onUndo: (itemId: number) => void;
-  onSatisfaction: (itemId: number, rating: SatisfactionRating, reasons: string[]) => void;
-  onSuggestOther: () => void;
+  results:       ScoredRecommendation[];
+  hiddenGem?:    ScoredRecommendation | null;
+  choices:       UserChoices;
+  profile:       UserProfile | null;
+  isQuickMode:   boolean;
+  isSearching?:  boolean;
+  onRestart:     () => void;
+  onAction:      (itemId: number, action: 'like' | 'seen' | 'dislike' | 'too-long') => void;
+  onUndo:        (itemId: number) => void;
+  onSatisfaction:(itemId: number, rating: SatisfactionRating, reasons: string[]) => void;
+  onSuggestOther:() => void;
 }
 
 const MOOD_LABELS: Record<string, string> = {
   'mind-bending': '🌀 Retourner le cerveau',
-  scared: '😱 Frissonner',
-  laugh: '😂 Rire',
-  moved: '🥺 S\'émouvoir',
-  escape: '✈️ S\'évader',
-  surprised: '🎲 Être surpris',
+  scared:         '😱 Frissonner',
+  laugh:          '😂 Rire',
+  moved:          "🥺 S'émouvoir",
+  escape:         '✈️ S\'évader',
+  surprised:      '🎲 Être surpris',
 };
 
 export function ResultsPage({
   results,
+  hiddenGem,
   choices,
   profile,
   isQuickMode,
@@ -35,20 +37,20 @@ export function ResultsPage({
   onSatisfaction,
   onSuggestOther,
 }: Props) {
-  const moodLabel = choices.mood ? MOOD_LABELS[choices.mood] : null;
-  const name = profile?.pseudo ?? null;
-  const hasResults = results.length > 0;
+  const mood: Mood | null = choices.mood;
+  const moodLabel         = mood ? MOOD_LABELS[mood] : null;
+  const name              = profile?.pseudo ?? null;
+  const hasResults        = results.length > 0;
 
   return (
     <div className="results-page">
       <div className="results-header">
         <div className="results-logo">MoodFlix</div>
 
-        {/* TMDB searching indicator */}
         {isSearching && (
           <div className="results-searching-banner">
             <span className="results-searching-dot" />
-            Recherche TMDB en cours…
+            Recherche TMDB + IA en cours…
           </div>
         )}
 
@@ -84,9 +86,7 @@ export function ResultsPage({
 
       {isSearching && !hasResults ? (
         <div className="results-loading-cards">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="card-skeleton" />
-          ))}
+          {[1, 2, 3].map(i => <div key={i} className="card-skeleton" />)}
         </div>
       ) : hasResults ? (
         <div className="results-cards">
@@ -96,6 +96,7 @@ export function ResultsPage({
               item={item}
               rank={i + 1}
               profile={profile}
+              mood={mood}
               onAction={onAction}
               onUndo={onUndo}
               onSatisfaction={onSatisfaction}
@@ -103,6 +104,29 @@ export function ResultsPage({
           ))}
         </div>
       ) : null}
+
+      {/* V4 — Hidden gem */}
+      {hiddenGem && hasResults && !isSearching && (
+        <div className="hidden-gem-section">
+          <div className="hidden-gem-header">
+            <span className="hidden-gem-icon">💎</span>
+            <div>
+              <p className="hidden-gem-label">Perle cachée pour toi</p>
+              <p className="hidden-gem-sub">Moins évident, mais potentiellement parfait</p>
+            </div>
+          </div>
+          <RecommendationCard
+            key={hiddenGem.id}
+            item={hiddenGem}
+            rank={0}
+            profile={profile}
+            mood={mood}
+            onAction={onAction}
+            onUndo={onUndo}
+            onSatisfaction={onSatisfaction}
+          />
+        </div>
+      )}
 
       <div className="results-footer">
         {hasResults && (
@@ -115,10 +139,10 @@ export function ResultsPage({
         </button>
         <p className="results-footer-text">
           {profile
-            ? 'Recommandations personnalisées · TMDB enrichi'
+            ? 'Recommandations personnalisées · TMDB · IA V4'
             : 'Recommandations basées sur tes choix du moment.'}
           <br />
-          <span className="results-footer-sub">MoodFlix V3 — Données locales + TMDB</span>
+          <span className="results-footer-sub">MoodFlix V4 — Données locales + TMDB + IA</span>
         </p>
       </div>
     </div>

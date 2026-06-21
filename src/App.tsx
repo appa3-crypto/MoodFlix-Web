@@ -22,7 +22,7 @@ import { ProfilePage } from './components/ProfilePage';
 import { HistoryPage } from './components/HistoryPage';
 import { Navigation } from './components/Navigation';
 import { useUserProfile } from './hooks/useUserProfile';
-import { getTopRecommendations, getQuickRecommendations } from './utils/recommendationEngine';
+import { getTopRecommendations, getQuickRecommendations, getHiddenGem } from './utils/recommendationEngine';
 import { discoverContent, enrichItem } from './services/tmdbService';
 import type { ScoredRecommendation } from './types';
 import rawData from './data/recommendations.json';
@@ -76,6 +76,8 @@ export default function App() {
   const [tmdbPool, setTmdbPool] = useState<Recommendation[]>([]);
   // V3 — true while TMDB async pipeline is running
   const [isSearching, setIsSearching] = useState(false);
+  // V4 — hidden gem ("perle cachée")
+  const [hiddenGem, setHiddenGem] = useState<ScoredRecommendation | null>(null);
 
   const goTo = useCallback((next: Step) => {
     setAnimating(true);
@@ -192,15 +194,25 @@ export default function App() {
       );
     }
 
-    // 4. Show results immediately with curated/existing data
+    // 4. Hidden gem — pick outside top results
+    const topIds = tops.map(r => r.id);
+    const gem    = getHiddenGem(allItems, updated, profile, [...topIds]);
+    setHiddenGem(gem);
+
+    // 5. Show results immediately with curated/existing data
     setResults(tops);
     setIsSearching(false);
 
-    // 5. Enrich top results with TMDB (poster, overview, rating, providers)
+    // 6. Enrich top results + gem with TMDB (poster, overview, rating, providers)
     const enriched = await Promise.all(
       tops.map(item => enrichItem(item).then(e => ({ ...item, ...e })))
     );
     setResults(enriched as ScoredRecommendation[]);
+
+    if (gem) {
+      const enrichedGem = await enrichItem(gem).then(e => ({ ...gem, ...e }));
+      setHiddenGem(enrichedGem as ScoredRecommendation);
+    }
   }
 
   // ── SUGGEST OTHER (same criteria, different results) ──
@@ -280,6 +292,7 @@ export default function App() {
     setQuickExcludedIds([]);
     setTmdbPool([]);
     setIsSearching(false);
+    setHiddenGem(null);
     goTo('home');
   }
 
@@ -503,6 +516,7 @@ export default function App() {
         {step === 'results' && (
           <ResultsPage
             results={results}
+            hiddenGem={hiddenGem}
             choices={choices}
             profile={profile}
             isQuickMode={isQuickMode}

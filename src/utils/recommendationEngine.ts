@@ -165,6 +165,32 @@ export function getTopRecommendations(
   return [...main, { ...discovery, isDiscovery: true }];
 }
 
+// V4 — Hidden gem: decent score but NOT in the top results, never recently shown
+export function getHiddenGem(
+  items: Recommendation[],
+  choices: UserChoices,
+  profile: UserProfile | null,
+  excludeIds: number[],
+): ScoredRecommendation | null {
+  const recentIds = new Set(
+    (profile?.recommendedHistory ?? [])
+      .filter(e => (Date.now() - new Date(e.date).getTime()) / 86_400_000 < 14)
+      .map(e => e.itemId),
+  );
+
+  const candidates = items
+    .filter(item => !excludeIds.includes(item.id))
+    .map(item => ({ ...item, score: scoreRecommendation(item, choices, profile) }))
+    .filter(item => item.score > 15 && item.score <= 55) // decent but not top
+    .sort((a, b) => b.score - a.score);
+
+  // Prefer items never recently shown
+  const fresh = candidates.filter(i => !recentIds.has(i.id));
+  const gem   = fresh[0] ?? candidates[0] ?? null;
+
+  return gem ? { ...gem, isDiscovery: false } : null;
+}
+
 // Quick mode (2-question flow)
 const VIBE_MOODS: Record<QuickVibe, string[]> = {
   light: ['laugh', 'escape'],
