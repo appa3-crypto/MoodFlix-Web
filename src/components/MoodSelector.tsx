@@ -6,16 +6,58 @@ interface MoodOption {
   emoji: string;
   description: string;
   bgKey: string;
+  imageSrc: string;
 }
 
-// Order matches the reference design: 3×2 grid
 const MOODS: MoodOption[] = [
-  { value: 'laugh',        label: 'Rire',                  emoji: '😊', description: 'Comédie, légèreté,\nbonne humeur',                    bgKey: 'laugh'       },
-  { value: 'scared',       label: 'Frissonner',             emoji: '👻', description: 'Horreur, suspense,\nmontée d\'adrénaline',             bgKey: 'scared'      },
-  { value: 'moved',        label: 'Être émus',              emoji: '❤️', description: 'Émotion, drama,\nhistoires touchantes',                bgKey: 'moved'       },
-  { value: 'escape',       label: "M'évader",               emoji: '🧭', description: 'Aventure, voyage,\nautre monde',                       bgKey: 'escape'      },
-  { value: 'mind-bending', label: 'Me retourner le cerveau',emoji: '🧠', description: 'Twists, énigmes,\nunivers complexes',                  bgKey: 'mindbending' },
-  { value: 'surprised',    label: 'Surprends-moi',          emoji: '✨', description: 'Inattendu, original,\nje me laisse guider',             bgKey: 'surprised'   },
+  {
+    value: 'laugh',
+    label: 'Rire',
+    emoji: '😊',
+    description: 'Comédie, légèreté,\nbonne humeur',
+    bgKey: 'laugh',
+    imageSrc: '/moods/rire.jpg',
+  },
+  {
+    value: 'scared',
+    label: 'Frissonner',
+    emoji: '👻',
+    description: 'Horreur, suspense,\nmontée d\'adrénaline',
+    bgKey: 'scared',
+    imageSrc: '/moods/frissonner.jpg',
+  },
+  {
+    value: 'moved',
+    label: 'Être émus',
+    emoji: '❤️',
+    description: 'Émotion, drama,\nhistoires touchantes',
+    bgKey: 'moved',
+    imageSrc: '/moods/emu.jpg',
+  },
+  {
+    value: 'escape',
+    label: "M'évader",
+    emoji: '🧭',
+    description: 'Aventure, voyage,\nautre monde',
+    bgKey: 'escape',
+    imageSrc: '/moods/evader.jpg',
+  },
+  {
+    value: 'mind-bending',
+    label: 'Me retourner le cerveau',
+    emoji: '🧠',
+    description: 'Twists, énigmes,\nunivers complexes',
+    bgKey: 'mindbending',
+    imageSrc: '/moods/cerveau.jpg',
+  },
+  {
+    value: 'surprised',
+    label: 'Surprends-moi',
+    emoji: '✨',
+    description: 'Inattendu, original,\nje me laisse guider',
+    bgKey: 'surprised',
+    imageSrc: '/moods/surprends.jpg',
+  },
 ];
 
 interface Props {
@@ -37,10 +79,20 @@ export function MoodSelector({ selected, onSelect }: Props) {
         {MOODS.map(mood => (
           <button
             key={mood.value}
-            className={`mood-card mood-bg-${mood.bgKey} ${selected === mood.value ? 'mood-card-selected' : ''}`}
+            className={`mood-card mood-bg-${mood.bgKey}${selected === mood.value ? ' mood-card-selected' : ''}`}
             onClick={() => onSelect(mood.value)}
             aria-pressed={selected === mood.value}
           >
+            {/* Real photo — fallback to CSS gradient if missing */}
+            <img
+              src={mood.imageSrc}
+              alt=""
+              className="mood-card-img"
+              draggable={false}
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            />
+
+            {/* Text content */}
             <div className="mood-card-content">
               <span className={`mood-card-badge mood-badge-${mood.bgKey}`}>
                 {mood.emoji}

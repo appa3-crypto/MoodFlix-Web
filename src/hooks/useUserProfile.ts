@@ -146,7 +146,7 @@ export function useUserProfile() {
   }
 
   // Batch-save calibration ratings in a single write to avoid multiple re-renders
-  function batchCalibration(ratings: Array<{ itemId: number; title: string; action: 'liked' | 'disliked' }>) {
+  function batchCalibration(ratings: Array<{ itemId: number; title: string; action: 'liked' | 'disliked' | 'seen' }>) {
     if (!profile) return;
     let updated = { ...profile };
     const historyEntries: RecommendationHistoryEntry[] = [];
@@ -172,7 +172,12 @@ export function useUserProfile() {
         ];
         historyEntries.push({ itemId, title, date: new Date().toISOString(), mood: null });
       } else if (action === 'disliked') {
+        // Mark as seen + disliked — won't be recommended again
+        updated.seenItems     = [...updated.seenItems, itemId];
         updated.dislikedItems = [...updated.dislikedItems, itemId];
+      } else if (action === 'seen') {
+        // Already seen but neutral — mark as seen to avoid re-recommending
+        updated.seenItems = [...updated.seenItems, itemId];
       }
     }
 

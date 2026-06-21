@@ -1,6 +1,6 @@
 [
   {
-    "id": 9001, "title": "Inception", "type": "movie",
+    "id": 9001, "title": "Inception", "type": "movie", "tmdbId": 27205,
     "platforms": ["Netflix", "Prime Video"], "durationCategory": "evening", "duration": 148,
     "moods": ["mind-bending", "surprised"],
     "tags": ["sci-fi", "thriller", "complexe", "action", "mystery", "twist"],
@@ -11,7 +11,7 @@
     "posterColor": "#0f3460", "posterEmoji": "🌀"
   },
   {
-    "id": 9002, "title": "The Dark Knight", "type": "movie",
+    "id": 9002, "title": "The Dark Knight", "type": "movie", "tmdbId": 155,
     "platforms": ["Netflix", "Canal+"], "durationCategory": "evening", "duration": 152,
     "moods": ["scared", "surprised"],
     "tags": ["superhero", "thriller", "dark", "crime", "action", "complexe"],
@@ -22,7 +22,7 @@
     "posterColor": "#1a1a2e", "posterEmoji": "🦇"
   },
   {
-    "id": 9003, "title": "Parasite", "type": "movie",
+    "id": 9003, "title": "Parasite", "type": "movie", "tmdbId": 496243,
     "platforms": ["Netflix", "Canal+"], "durationCategory": "evening", "duration": 132,
     "moods": ["surprised", "moved"],
     "tags": ["thriller", "comédie-noire", "social", "twist", "famille", "korean"],
@@ -33,7 +33,7 @@
     "posterColor": "#2d1b2e", "posterEmoji": "🎭"
   },
   {
-    "id": 9004, "title": "Breaking Bad", "type": "series",
+    "id": 9004, "title": "Breaking Bad", "type": "series", "tmdbId": 1396,
     "platforms": ["Netflix"], "durationCategory": "several-days", "seasons": 5,
     "moods": ["surprised", "mind-bending"],
     "tags": ["crime", "drame", "complexe", "dark", "suspense", "transformation", "chimie"],
@@ -44,7 +44,7 @@
     "posterColor": "#1e1b2e", "posterEmoji": "⚗️"
   },
   {
-    "id": 9005, "title": "Stranger Things", "type": "series",
+    "id": 9005, "title": "Stranger Things", "type": "series", "tmdbId": 66732,
     "platforms": ["Netflix"], "durationCategory": "several-days", "seasons": 4,
     "moods": ["scared", "mind-bending", "moved"],
     "tags": ["horreur", "nostalgie", "mystery", "surnaturel", "adolescents", "sci-fi", "années80"],
@@ -55,7 +55,7 @@
     "posterColor": "#0f1b35", "posterEmoji": "🔮"
   },
   {
-    "id": 9006, "title": "La La Land", "type": "movie",
+    "id": 9006, "title": "La La Land", "type": "movie", "tmdbId": 313369,
     "platforms": ["Netflix", "Canal+"], "durationCategory": "two-hours", "duration": 128,
     "moods": ["moved", "escape"],
     "tags": ["romance", "musical", "rêve", "nostalgie", "artistique", "feel-good", "jazz"],
@@ -66,7 +66,7 @@
     "posterColor": "#1e1040", "posterEmoji": "🎵"
   },
   {
-    "id": 9007, "title": "Get Out", "type": "movie",
+    "id": 9007, "title": "Get Out", "type": "movie", "tmdbId": 419430,
     "platforms": ["Canal+", "Prime Video"], "durationCategory": "two-hours", "duration": 104,
     "moods": ["scared", "surprised", "mind-bending"],
     "tags": ["horreur", "thriller", "social", "twist", "suspense", "psychologique", "race"],
@@ -77,7 +77,7 @@
     "posterColor": "#1a0f1e", "posterEmoji": "👁️"
   },
   {
-    "id": 9008, "title": "Interstellar", "type": "movie",
+    "id": 9008, "title": "Interstellar", "type": "movie", "tmdbId": 157336,
     "platforms": ["Netflix", "Canal+"], "durationCategory": "evening", "duration": 169,
     "moods": ["mind-bending", "moved", "escape"],
     "tags": ["sci-fi", "espace", "temps", "émotionnel", "complexe", "père-fils", "physique"],
@@ -88,7 +88,7 @@
     "posterColor": "#050a1f", "posterEmoji": "🚀"
   },
   {
-    "id": 9009, "title": "La Casa de Papel", "type": "series",
+    "id": 9009, "title": "La Casa de Papel", "type": "series", "tmdbId": 71446,
     "platforms": ["Netflix"], "durationCategory": "several-days", "seasons": 5,
     "moods": ["surprised", "escape"],
     "tags": ["braquage", "thriller", "crime", "espagnol", "action", "suspense", "romance"],
@@ -99,7 +99,7 @@
     "posterColor": "#8b0000", "posterEmoji": "💰"
   },
   {
-    "id": 9010, "title": "The Office", "type": "series",
+    "id": 9010, "title": "The Office", "type": "series", "tmdbId": 2316,
     "platforms": ["Prime Video"], "durationCategory": "several-days", "seasons": 9,
     "moods": ["laugh", "escape"],
     "tags": ["comédie", "bureau", "mockumentaire", "feel-good", "américain", "humour", "absurde"],
@@ -110,7 +110,7 @@
     "posterColor": "#2d2d2d", "posterEmoji": "💼"
   },
   {
-    "id": 9011, "title": "Black Mirror", "type": "series",
+    "id": 9011, "title": "Black Mirror", "type": "series", "tmdbId": 42009,
     "platforms": ["Netflix"], "durationCategory": "several-days", "seasons": 6,
     "moods": ["mind-bending", "scared", "surprised"],
     "tags": ["sci-fi", "dystopie", "technologie", "dark", "anthologie", "futur", "psychologique"],
@@ -121,7 +121,7 @@
     "posterColor": "#1a1a1a", "posterEmoji": "📱"
   },
   {
-    "id": 9012, "title": "Knives Out", "type": "movie",
+    "id": 9012, "title": "Knives Out", "type": "movie", "tmdbId": 546554,
     "platforms": ["Netflix", "Prime Video"], "durationCategory": "two-hours", "duration": 130,
     "moods": ["surprised", "laugh", "mind-bending"],
     "tags": ["polar", "humour", "mystery", "whodunit", "famille", "twist", "détective"],
@@ -130,5 +130,93 @@
     "shortReason": "Un whodunit moderne brillant — le meilleur film policier des dernières années.",
     "disappointmentRisk": "Certains trouvent la résolution trop prévisible.",
     "posterColor": "#2d1010", "posterEmoji": "🔪"
+  },
+  {
+    "id": 9013, "title": "Pulp Fiction", "type": "movie", "tmdbId": 680,
+    "platforms": ["Canal+"], "durationCategory": "evening", "duration": 154,
+    "moods": ["surprised", "laugh", "mind-bending"],
+    "tags": ["crime", "noir", "non-linéaire", "culte", "dialogue", "violence", "humour-noir"],
+    "atmosphere": "Culte, anarchique et fascinante",
+    "complexityScore": 7, "fearScore": 5, "emotionScore": 5, "humorScore": 8, "mysteryScore": 7,
+    "shortReason": "Tarantino au sommet — une galerie de personnages inoubliables.",
+    "disappointmentRisk": "Structure non-linéaire qui peut dérouter. Violence assumée.",
+    "posterColor": "#1a0f00", "posterEmoji": "🎬"
+  },
+  {
+    "id": 9014, "title": "The Shawshank Redemption", "type": "movie", "tmdbId": 278,
+    "platforms": ["Netflix"], "durationCategory": "evening", "duration": 142,
+    "moods": ["moved", "escape"],
+    "tags": ["prison", "amitié", "espoir", "drame", "humaniste", "inspirant", "culte"],
+    "atmosphere": "Bouleversante, humaine et profondément inspirante",
+    "complexityScore": 5, "fearScore": 2, "emotionScore": 10, "humorScore": 3, "mysteryScore": 4,
+    "shortReason": "Souvent élu meilleur film de tous les temps. Espoir et liberté.",
+    "disappointmentRisk": "Lent et contemplatif — pas pour une soirée action.",
+    "posterColor": "#1a1000", "posterEmoji": "⛓️"
+  },
+  {
+    "id": 9015, "title": "Forrest Gump", "type": "movie", "tmdbId": 13,
+    "platforms": ["Netflix", "Canal+"], "durationCategory": "evening", "duration": 142,
+    "moods": ["moved", "laugh"],
+    "tags": ["feel-good", "histoire-américaine", "romance", "destin", "humour", "émotion", "Tom Hanks"],
+    "atmosphere": "Touchante, drôle et profondément humaine",
+    "complexityScore": 3, "fearScore": 1, "emotionScore": 9, "humorScore": 7, "mysteryScore": 2,
+    "shortReason": "La vie est comme une boîte de chocolats — un classique intemporel.",
+    "disappointmentRisk": "Très long. Certains trouvent le ton trop naïf.",
+    "posterColor": "#1a1200", "posterEmoji": "🪶"
+  },
+  {
+    "id": 9016, "title": "The Matrix", "type": "movie", "tmdbId": 603,
+    "platforms": ["Netflix"], "durationCategory": "two-hours", "duration": 136,
+    "moods": ["escape", "mind-bending"],
+    "tags": ["sci-fi", "action", "philosophie", "simulation", "cyber", "culte", "révolution"],
+    "atmosphere": "Révolutionnaire, visuelle et philosophique",
+    "complexityScore": 8, "fearScore": 3, "emotionScore": 6, "humorScore": 2, "mysteryScore": 8,
+    "shortReason": "Pilule rouge ou bleue ? Le film qui a redéfini le cinéma d'action.",
+    "disappointmentRisk": "Les suites décevantes peuvent gâcher la relecture du premier.",
+    "posterColor": "#001200", "posterEmoji": "💊"
+  },
+  {
+    "id": 9017, "title": "Titanic", "type": "movie", "tmdbId": 597,
+    "platforms": ["Disney+", "Canal+"], "durationCategory": "evening", "duration": 195,
+    "moods": ["moved"],
+    "tags": ["romance", "tragédie", "historique", "épique", "amour", "catastrophe", "classes-sociales"],
+    "atmosphere": "Épique, romantique et déchirante",
+    "complexityScore": 3, "fearScore": 4, "emotionScore": 10, "humorScore": 2, "mysteryScore": 2,
+    "shortReason": "La romance la plus célèbre du cinéma. Leonardo DiCaprio au sommet.",
+    "disappointmentRisk": "Très long (3h15). Les scènes CGI ont mal vieilli.",
+    "posterColor": "#001a2e", "posterEmoji": "🚢"
+  },
+  {
+    "id": 9018, "title": "The Silence of the Lambs", "type": "movie", "tmdbId": 274,
+    "platforms": ["Canal+"], "durationCategory": "two-hours", "duration": 118,
+    "moods": ["scared", "mind-bending"],
+    "tags": ["thriller", "psychologique", "serial-killer", "FBI", "suspense", "oscars", "Hannibal"],
+    "atmosphere": "Glaciale, tendue et intellectuellement fascinante",
+    "complexityScore": 7, "fearScore": 8, "emotionScore": 6, "humorScore": 1, "mysteryScore": 9,
+    "shortReason": "Anthony Hopkins est Hannibal Lecter. Le thriller psychologique ultime.",
+    "disappointmentRisk": "Très intense psychologiquement. Certaines scènes peuvent heurter.",
+    "posterColor": "#0f0f1a", "posterEmoji": "🦋"
+  },
+  {
+    "id": 9019, "title": "Fight Club", "type": "movie", "tmdbId": 550,
+    "platforms": ["Canal+"], "durationCategory": "evening", "duration": 139,
+    "moods": ["mind-bending", "surprised"],
+    "tags": ["twist", "psychologique", "société", "identité", "culte", "violence", "masculinité"],
+    "atmosphere": "Dérangeante, nihiliste et éblouissante",
+    "complexityScore": 9, "fearScore": 5, "emotionScore": 7, "humorScore": 5, "mysteryScore": 9,
+    "shortReason": "On ne parle pas du Fight Club. Le twist final change tout.",
+    "disappointmentRisk": "Violent et nihiliste. Le message peut être mal interprété.",
+    "posterColor": "#1a0a00", "posterEmoji": "🥊"
+  },
+  {
+    "id": 9020, "title": "Avengers: Endgame", "type": "movie", "tmdbId": 299534,
+    "platforms": ["Disney+"], "durationCategory": "evening", "duration": 181,
+    "moods": ["escape", "moved"],
+    "tags": ["superhero", "action", "épique", "Marvel", "aventure", "émotion", "blockbuster"],
+    "atmosphere": "Épique, émotionnelle et spectaculaire",
+    "complexityScore": 5, "fearScore": 3, "emotionScore": 8, "humorScore": 5, "mysteryScore": 4,
+    "shortReason": "La conclusion de 10 ans de cinéma Marvel. Un événement mondial.",
+    "disappointmentRisk": "Nécessite d'avoir vu les films précédents. 3h de film.",
+    "posterColor": "#0a0a1a", "posterEmoji": "🦸"
   }
 ]
