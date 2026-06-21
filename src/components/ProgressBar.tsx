@@ -1,7 +1,7 @@
 import type { Step } from '../types';
 
-const STEPS_FULL: Step[] = ['mood', 'type', 'duration', 'platform', 'references'];
-const STEPS_SHORT: Step[] = ['mood', 'type', 'duration', 'references'];
+const STEPS_FULL: Step[] = ['mood', 'type', 'duration', 'platform'];
+const STEPS_SHORT: Step[] = ['mood', 'type', 'duration'];
 
 interface Props {
   currentStep: Step;

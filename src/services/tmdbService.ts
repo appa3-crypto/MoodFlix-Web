@@ -128,7 +128,8 @@ export async function discoverContent(
 ): Promise<Recommendation[]> {
   if (!API_KEY || !choices.mood) return [];
 
-  const genreIds = MOOD_GENRE_IDS[choices.mood]?.join(',') ?? '';
+  // Use | (OR) not , (AND) — comma means ALL genres must match, pipe means at least one
+  const genreIds = MOOD_GENRE_IDS[choices.mood]?.join('|') ?? '';
   const providerParam = buildWatchProviderParam(choices.platforms);
   const excludedLower = excludedTitles.map(t => t.toLowerCase());
 
@@ -136,10 +137,12 @@ export async function discoverContent(
 
   async function discover(mediaType: 'movie' | 'tv'): Promise<void> {
     const params: Record<string, string> = {
-      with_genres:       genreIds,
-      sort_by:           'vote_average.desc',
-      'vote_count.gte':  '150',
-      'vote_average.gte':'6.5',
+      with_genres:        genreIds,
+      sort_by:            'vote_average.desc',
+      'vote_count.gte':   '500',     // was 150 — ensures well-known content
+      'vote_average.gte': '7.0',     // was 6.5 — higher quality bar
+      // Exclude animation, reality TV, talk shows, documentaries
+      without_genres:     mediaType === 'tv' ? '16,10764,10767,99' : '16',
     };
 
     if (mediaType === 'movie' && choices.duration && choices.duration !== 'several-days') {

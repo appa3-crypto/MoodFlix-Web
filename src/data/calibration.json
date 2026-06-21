@@ -1,0 +1,134 @@
+[
+  {
+    "id": 9001, "title": "Inception", "type": "movie",
+    "platforms": ["Netflix", "Prime Video"], "durationCategory": "evening", "duration": 148,
+    "moods": ["mind-bending", "surprised"],
+    "tags": ["sci-fi", "thriller", "complexe", "action", "mystery", "twist"],
+    "atmosphere": "Un thriller de SF labyrinthique de Nolan",
+    "complexityScore": 9, "fearScore": 3, "emotionScore": 7, "humorScore": 1, "mysteryScore": 9,
+    "shortReason": "Le thriller SF définitif — des rêves dans les rêves.",
+    "disappointmentRisk": "Très complexe — nécessite de l'attention.",
+    "posterColor": "#0f3460", "posterEmoji": "🌀"
+  },
+  {
+    "id": 9002, "title": "The Dark Knight", "type": "movie",
+    "platforms": ["Netflix", "Canal+"], "durationCategory": "evening", "duration": 152,
+    "moods": ["scared", "surprised"],
+    "tags": ["superhero", "thriller", "dark", "crime", "action", "complexe"],
+    "atmosphere": "Sombre, intense et sans répit",
+    "complexityScore": 8, "fearScore": 6, "emotionScore": 7, "humorScore": 2, "mysteryScore": 7,
+    "shortReason": "Le meilleur film de super-héros jamais réalisé.",
+    "disappointmentRisk": "Dense et long — pas pour une soirée légère.",
+    "posterColor": "#1a1a2e", "posterEmoji": "🦇"
+  },
+  {
+    "id": 9003, "title": "Parasite", "type": "movie",
+    "platforms": ["Netflix", "Canal+"], "durationCategory": "evening", "duration": 132,
+    "moods": ["surprised", "moved"],
+    "tags": ["thriller", "comédie-noire", "social", "twist", "famille", "korean"],
+    "atmosphere": "Mordant, imprévisible et brillant",
+    "complexityScore": 8, "fearScore": 5, "emotionScore": 8, "humorScore": 6, "mysteryScore": 8,
+    "shortReason": "Palme d'or et Oscar — une masterclass de cinéma coréen.",
+    "disappointmentRisk": "Sous-titres obligatoires. Le dénouement peut déranger.",
+    "posterColor": "#2d1b2e", "posterEmoji": "🎭"
+  },
+  {
+    "id": 9004, "title": "Breaking Bad", "type": "series",
+    "platforms": ["Netflix"], "durationCategory": "several-days", "seasons": 5,
+    "moods": ["surprised", "mind-bending"],
+    "tags": ["crime", "drame", "complexe", "dark", "suspense", "transformation", "chimie"],
+    "atmosphere": "Addictive et moralement intense",
+    "complexityScore": 9, "fearScore": 5, "emotionScore": 8, "humorScore": 3, "mysteryScore": 7,
+    "shortReason": "La meilleure série de tous les temps selon beaucoup.",
+    "disappointmentRisk": "Très lente au début — il faut tenir 3 épisodes.",
+    "posterColor": "#1e1b2e", "posterEmoji": "⚗️"
+  },
+  {
+    "id": 9005, "title": "Stranger Things", "type": "series",
+    "platforms": ["Netflix"], "durationCategory": "several-days", "seasons": 4,
+    "moods": ["scared", "mind-bending", "moved"],
+    "tags": ["horreur", "nostalgie", "mystery", "surnaturel", "adolescents", "sci-fi", "années80"],
+    "atmosphere": "Nostalgique, effrayante et addictive",
+    "complexityScore": 6, "fearScore": 7, "emotionScore": 7, "humorScore": 4, "mysteryScore": 8,
+    "shortReason": "La série Netflix qui a tout relancé. Années 80, monstres et amitié.",
+    "disappointmentRisk": "Les saisons 3 et 4 déçoivent certains fans.",
+    "posterColor": "#0f1b35", "posterEmoji": "🔮"
+  },
+  {
+    "id": 9006, "title": "La La Land", "type": "movie",
+    "platforms": ["Netflix", "Canal+"], "durationCategory": "two-hours", "duration": 128,
+    "moods": ["moved", "escape"],
+    "tags": ["romance", "musical", "rêve", "nostalgie", "artistique", "feel-good", "jazz"],
+    "atmosphere": "Mélancolique, enchantée et lumineuse",
+    "complexityScore": 4, "fearScore": 0, "emotionScore": 9, "humorScore": 4, "mysteryScore": 2,
+    "shortReason": "Un film musical qui fait rêver et pleurer en même temps.",
+    "disappointmentRisk": "La fin déçoit ceux qui veulent un happy end classique.",
+    "posterColor": "#1e1040", "posterEmoji": "🎵"
+  },
+  {
+    "id": 9007, "title": "Get Out", "type": "movie",
+    "platforms": ["Canal+", "Prime Video"], "durationCategory": "two-hours", "duration": 104,
+    "moods": ["scared", "surprised", "mind-bending"],
+    "tags": ["horreur", "thriller", "social", "twist", "suspense", "psychologique", "race"],
+    "atmosphere": "Angoissante, dérangeante et révélatrice",
+    "complexityScore": 7, "fearScore": 8, "emotionScore": 6, "humorScore": 2, "mysteryScore": 8,
+    "shortReason": "Jordan Peele révolutionne l'horreur avec un thriller social brillant.",
+    "disappointmentRisk": "Certaines scènes sont très malaisantes volontairement.",
+    "posterColor": "#1a0f1e", "posterEmoji": "👁️"
+  },
+  {
+    "id": 9008, "title": "Interstellar", "type": "movie",
+    "platforms": ["Netflix", "Canal+"], "durationCategory": "evening", "duration": 169,
+    "moods": ["mind-bending", "moved", "escape"],
+    "tags": ["sci-fi", "espace", "temps", "émotionnel", "complexe", "père-fils", "physique"],
+    "atmosphere": "Épique, complexe et bouleversante",
+    "complexityScore": 9, "fearScore": 3, "emotionScore": 9, "humorScore": 1, "mysteryScore": 8,
+    "shortReason": "Nolan envoie une fusée dans l'espace et te fait pleurer.",
+    "disappointmentRisk": "Très long et scientifiquement dense. La fin divise.",
+    "posterColor": "#050a1f", "posterEmoji": "🚀"
+  },
+  {
+    "id": 9009, "title": "La Casa de Papel", "type": "series",
+    "platforms": ["Netflix"], "durationCategory": "several-days", "seasons": 5,
+    "moods": ["surprised", "escape"],
+    "tags": ["braquage", "thriller", "crime", "espagnol", "action", "suspense", "romance"],
+    "atmosphere": "Électrisante, haletante et romantique",
+    "complexityScore": 6, "fearScore": 4, "emotionScore": 6, "humorScore": 3, "mysteryScore": 6,
+    "shortReason": "La série espagnole qui a conquis le monde entier.",
+    "disappointmentRisk": "Les dernières saisons perdent en qualité selon beaucoup.",
+    "posterColor": "#8b0000", "posterEmoji": "💰"
+  },
+  {
+    "id": 9010, "title": "The Office", "type": "series",
+    "platforms": ["Prime Video"], "durationCategory": "several-days", "seasons": 9,
+    "moods": ["laugh", "escape"],
+    "tags": ["comédie", "bureau", "mockumentaire", "feel-good", "américain", "humour", "absurde"],
+    "atmosphere": "Drôle, absurde et terriblement attachante",
+    "complexityScore": 2, "fearScore": 0, "emotionScore": 5, "humorScore": 9, "mysteryScore": 1,
+    "shortReason": "La sitcom culte à regarder quand on a besoin de rire sans réfléchir.",
+    "disappointmentRisk": "L'humour très américain peut dérouter. Lent à démarrer.",
+    "posterColor": "#2d2d2d", "posterEmoji": "💼"
+  },
+  {
+    "id": 9011, "title": "Black Mirror", "type": "series",
+    "platforms": ["Netflix"], "durationCategory": "several-days", "seasons": 6,
+    "moods": ["mind-bending", "scared", "surprised"],
+    "tags": ["sci-fi", "dystopie", "technologie", "dark", "anthologie", "futur", "psychologique"],
+    "atmosphere": "Sombre, dérangeante et prophétique",
+    "complexityScore": 8, "fearScore": 7, "emotionScore": 7, "humorScore": 2, "mysteryScore": 8,
+    "shortReason": "Une série anthologie sur nos peurs technologiques. Chaque épisode est un film.",
+    "disappointmentRisk": "Certains épisodes sont très déprimants. Pas à regarder seul le soir.",
+    "posterColor": "#1a1a1a", "posterEmoji": "📱"
+  },
+  {
+    "id": 9012, "title": "Knives Out", "type": "movie",
+    "platforms": ["Netflix", "Prime Video"], "durationCategory": "two-hours", "duration": 130,
+    "moods": ["surprised", "laugh", "mind-bending"],
+    "tags": ["polar", "humour", "mystery", "whodunit", "famille", "twist", "détective"],
+    "atmosphere": "Jubilatoire, futée et pleine de rebondissements",
+    "complexityScore": 7, "fearScore": 2, "emotionScore": 5, "humorScore": 7, "mysteryScore": 9,
+    "shortReason": "Un whodunit moderne brillant — le meilleur film policier des dernières années.",
+    "disappointmentRisk": "Certains trouvent la résolution trop prévisible.",
+    "posterColor": "#2d1010", "posterEmoji": "🔪"
+  }
+]

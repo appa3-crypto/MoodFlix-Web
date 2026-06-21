@@ -155,7 +155,7 @@ export function RecommendationCard({ item, rank, profile, mood, onAction, onUndo
         <div className="card-meta">
           <div className="card-title-row">
             <h3 className="card-title">{item.title}</h3>
-            {compat.total >= 40 && profile && (
+            {compat.total >= 65 && profile && (
               <span className="compat-badge">{compat.total}%</span>
             )}
           </div>

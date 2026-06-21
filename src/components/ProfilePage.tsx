@@ -6,6 +6,7 @@ interface Props {
   profile: UserProfile;
   onReset: () => void;
   onUpdatePreferences: (type: ContentType, duration: Duration | null, platforms: Platform[]) => void;
+  onCalibrate: () => void;
 }
 
 const MOOD_LABELS: Record<string, string> = {
@@ -36,7 +37,7 @@ const DURATION_OPTIONS: { value: Duration; label: string }[] = [
 
 const PLATFORMS: Platform[] = ['Netflix', 'Prime Video', 'Disney+', 'Canal+'];
 
-export function ProfilePage({ profile, onReset, onUpdatePreferences }: Props) {
+export function ProfilePage({ profile, onReset, onUpdatePreferences, onCalibrate }: Props) {
   const [editingPrefs, setEditingPrefs] = useState(false);
   const [editType, setEditType] = useState<ContentType>(profile.preferredType);
   const [editDuration, setEditDuration] = useState<Duration | null>(profile.preferredDuration);
@@ -299,6 +300,17 @@ export function ProfilePage({ profile, onReset, onUpdatePreferences }: Props) {
           </div>
         </div>
       )}
+
+      {/* Calibration */}
+      <div className="profile-section">
+        <h2 className="profile-section-title">Améliorer mes recommandations</h2>
+        <p className="profile-section-desc">
+          Note 12 films et séries connus pour que MoodFlix comprenne mieux tes goûts.
+        </p>
+        <button className="btn-calibrate-profile" onClick={onCalibrate}>
+          🎯 Calibrer mes goûts
+        </button>
+      </div>
 
       {/* Reset */}
       <div className="profile-section profile-section-reset">

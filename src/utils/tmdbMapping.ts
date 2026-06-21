@@ -1,12 +1,12 @@
 import type { Recommendation, Mood, UserChoices } from '../types';
 
 export const MOOD_GENRE_IDS: Record<Mood, number[]> = {
-  'mind-bending': [878, 9648, 14],   // Sci-Fi, Mystery, Fantasy
-  scared:         [27, 53],           // Horror, Thriller
-  laugh:          [35, 16],           // Comedy, Animation
-  moved:          [18, 10749],        // Drama, Romance
-  escape:         [12, 28],           // Adventure, Action
-  surprised:      [53, 9648, 80],     // Thriller, Mystery, Crime
+  'mind-bending': [878, 9648],   // Sci-Fi OR Mystery (drop Fantasy 14)
+  scared:         [27, 53],      // Horror OR Thriller
+  laugh:          [35],          // Comedy only (Animation 16 excluded — causes anime spam)
+  moved:          [18, 10749],   // Drama OR Romance
+  escape:         [12, 28],      // Adventure OR Action
+  surprised:      [53, 9648, 80], // Thriller OR Mystery OR Crime
 };
 
 // TMDB JustWatch provider IDs for France

@@ -14,20 +14,23 @@ import { MoodSelector } from './components/MoodSelector';
 import { TypeSelector } from './components/TypeSelector';
 import { TimeSelector } from './components/TimeSelector';
 import { PlatformSelector } from './components/PlatformSelector';
-import { ReferenceInput } from './components/ReferenceInput';
 import { ResultsPage } from './components/ResultsPage';
 import { ProgressBar } from './components/ProgressBar';
 import { ProfileSetup } from './components/ProfileSetup';
 import { ProfilePage } from './components/ProfilePage';
 import { HistoryPage } from './components/HistoryPage';
 import { Navigation } from './components/Navigation';
+import { CalibrationModal } from './components/CalibrationModal';
+import type { CalibResult } from './components/CalibrationModal';
 import { useUserProfile } from './hooks/useUserProfile';
 import { getTopRecommendations, getQuickRecommendations, getHiddenGem } from './utils/recommendationEngine';
 import { discoverContent, enrichItem } from './services/tmdbService';
 import type { ScoredRecommendation } from './types';
 import rawData from './data/recommendations.json';
+import calibrationData from './data/calibration.json';
 
-const ALL_ITEMS = rawData as Recommendation[];
+// Curated catalog + calibration items (calibration items contribute to tag similarity)
+const ALL_ITEMS = [...rawData as Recommendation[], ...calibrationData as Recommendation[]];
 
 const INITIAL_CHOICES: UserChoices = {
   mood: null,
@@ -37,9 +40,9 @@ const INITIAL_CHOICES: UserChoices = {
   references: '',
 };
 
-// Steps for back() navigation (platform may be skipped)
-const FLOW_FULL: Step[] = ['home', 'mood', 'type', 'duration', 'platform', 'references', 'results'];
-const FLOW_SHORT: Step[] = ['home', 'mood', 'type', 'duration', 'references', 'results'];
+// References step removed — flow goes directly to results after platform
+const FLOW_FULL: Step[]  = ['home', 'mood', 'type', 'duration', 'platform', 'results'];
+const FLOW_SHORT: Step[] = ['home', 'mood', 'type', 'duration', 'results'];
 
 export default function App() {
   const {
@@ -54,6 +57,7 @@ export default function App() {
     undoAction,
     addSatisfaction,
     recordRecommendedHistory,
+    batchCalibration,
   } = useUserProfile();
 
   const [step, setStep] = useState<Step>('home');
@@ -62,22 +66,15 @@ export default function App() {
   const [animating, setAnimating] = useState(false);
   const [isQuickMode, setIsQuickMode] = useState(false);
   const [quickType, setQuickType] = useState<ContentType>('both');
-  // Platform skip — true when platform step was bypassed using profile
   const [platformsFromProfile, setPlatformsFromProfile] = useState(false);
-  // Platform edit mode — user clicked "Modifier" from references step
   const [platformEditMode, setPlatformEditMode] = useState(false);
-  // IDs to exclude when requesting new suggestions ("Proposer autre chose")
   const [excludedIds, setExcludedIds] = useState<number[]>([]);
-  // Quick mode excluded IDs
   const [quickExcludedIds, setQuickExcludedIds] = useState<number[]>([]);
-  // Store quick vibe for "Proposer autre chose" in quick mode
   const [lastQuickVibe, setLastQuickVibe] = useState<QuickVibe>('surprising');
-  // V3 — TMDB discover pool (used to supplement curated catalog)
   const [tmdbPool, setTmdbPool] = useState<Recommendation[]>([]);
-  // V3 — true while TMDB async pipeline is running
   const [isSearching, setIsSearching] = useState(false);
-  // V4 — hidden gem ("perle cachée")
   const [hiddenGem, setHiddenGem] = useState<ScoredRecommendation | null>(null);
+  const [showCalibration, setShowCalibration] = useState(false);
 
   const goTo = useCallback((next: Step) => {
     setAnimating(true);
@@ -87,8 +84,50 @@ export default function App() {
     }, 200);
   }, []);
 
+  // ── CORE SEARCH ENGINE ──
+  async function triggerSearch(currentChoices: UserChoices) {
+    setIsQuickMode(false);
+    setExcludedIds([]);
+    setIsSearching(true);
+    setResults([]);
+    goTo('results');
+
+    const curatedTitles = ALL_ITEMS.map(i => i.title);
+    const tmdbItems = await discoverContent(currentChoices, curatedTitles);
+    setTmdbPool(tmdbItems);
+
+    const allItems = [...ALL_ITEMS, ...tmdbItems];
+    const tops = getTopRecommendations(allItems, currentChoices, profile, 3, []);
+
+    recordPreferences(currentChoices.type ?? 'both', currentChoices.duration, currentChoices.platforms);
+    if (tops.length > 0) {
+      recordRecommendedHistory(
+        tops.map(item => ({
+          itemId: item.id, title: item.title,
+          date: new Date().toISOString(), mood: currentChoices.mood,
+        }))
+      );
+    }
+
+    const topIds = tops.map(r => r.id);
+    const gem = getHiddenGem(allItems, currentChoices, profile, [...topIds]);
+    setHiddenGem(gem);
+
+    setResults(tops);
+    setIsSearching(false);
+
+    const enriched = await Promise.all(
+      tops.map(item => enrichItem(item).then(e => ({ ...item, ...e })))
+    );
+    setResults(enriched as ScoredRecommendation[]);
+
+    if (gem) {
+      const enrichedGem = await enrichItem(gem).then(e => ({ ...gem, ...e }));
+      setHiddenGem(enrichedGem as ScoredRecommendation);
+    }
+  }
+
   // ── START NORMAL SEARCH ──
-  // Pre-fill from profile defaults to save clicks
   function startNormalSearch() {
     const prefPlatforms = profile?.preferredPlatforms ?? [];
     setChoices({
@@ -116,14 +155,14 @@ export default function App() {
     goTo('duration');
   }
 
-  // ── DURATION ──
+  // ── DURATION ── goes directly to results if profile has platforms
   function handleDuration(duration: Duration) {
     const hasPlatforms = (profile?.preferredPlatforms.length ?? 0) > 0;
     if (hasPlatforms && !platformEditMode) {
-      // Skip platform step — use profile platforms
-      setChoices(c => ({ ...c, duration, platforms: profile!.preferredPlatforms }));
+      const updated = { ...choices, duration, platforms: profile!.preferredPlatforms };
+      setChoices(updated);
       setPlatformsFromProfile(true);
-      goTo('references');
+      triggerSearch(updated); // Skip platform step — go directly to results
     } else {
       setChoices(c => ({ ...c, duration }));
       setPlatformsFromProfile(false);
@@ -147,75 +186,17 @@ export default function App() {
     });
   }
 
-  // ── PLATFORM NEXT ──
+  // ── PLATFORM NEXT → directly to results (no references step)
   function handlePlatformNext() {
     if (platformEditMode) {
-      // Save updated platforms to profile
       recordPreferences(choices.type ?? 'both', choices.duration, choices.platforms);
       setPlatformEditMode(false);
       setPlatformsFromProfile(true);
     }
-    goTo('references');
+    triggerSearch(choices);
   }
 
-  // ── EDIT PLATFORMS (from references step) ──
-  function handleEditPlatforms() {
-    setPlatformEditMode(true);
-    goTo('platform');
-  }
-
-  // ── REFERENCES → RESULTS (async — TMDB discover + enrich) ──
-  async function handleReferences(references: string) {
-    const updated = { ...choices, references };
-    setChoices(updated);
-    setIsQuickMode(false);
-    setExcludedIds([]);
-    setIsSearching(true);
-    setResults([]);
-    goTo('results');
-
-    // 1. Discover additional items from TMDB
-    const curatedTitles = ALL_ITEMS.map(i => i.title);
-    const tmdbItems = await discoverContent(updated, curatedTitles);
-    setTmdbPool(tmdbItems);
-
-    // 2. Score curated + TMDB pool together
-    const allItems = [...ALL_ITEMS, ...tmdbItems];
-    const tops = getTopRecommendations(allItems, updated, profile, 3, []);
-
-    // 3. Persist preferences + history
-    recordPreferences(updated.type ?? 'both', updated.duration, updated.platforms);
-    if (tops.length > 0) {
-      recordRecommendedHistory(
-        tops.map(item => ({
-          itemId: item.id, title: item.title,
-          date: new Date().toISOString(), mood: updated.mood,
-        }))
-      );
-    }
-
-    // 4. Hidden gem — pick outside top results
-    const topIds = tops.map(r => r.id);
-    const gem    = getHiddenGem(allItems, updated, profile, [...topIds]);
-    setHiddenGem(gem);
-
-    // 5. Show results immediately with curated/existing data
-    setResults(tops);
-    setIsSearching(false);
-
-    // 6. Enrich top results + gem with TMDB (poster, overview, rating, providers)
-    const enriched = await Promise.all(
-      tops.map(item => enrichItem(item).then(e => ({ ...item, ...e })))
-    );
-    setResults(enriched as ScoredRecommendation[]);
-
-    if (gem) {
-      const enrichedGem = await enrichItem(gem).then(e => ({ ...gem, ...e }));
-      setHiddenGem(enrichedGem as ScoredRecommendation);
-    }
-  }
-
-  // ── SUGGEST OTHER (same criteria, different results) ──
+  // ── SUGGEST OTHER ──
   async function handleSuggestOther() {
     if (isQuickMode) {
       const newExcluded = [...quickExcludedIds, ...results.map(r => r.id)];
@@ -244,7 +225,6 @@ export default function App() {
           }))
         );
       }
-      // Enrich new suggestions
       const enriched = await Promise.all(
         tops.map(item => enrichItem(item).then(e => ({ ...item, ...e })))
       );
@@ -271,14 +251,18 @@ export default function App() {
     if (tops.length > 0) {
       recordRecommendedHistory(
         tops.map(item => ({
-          itemId: item.id,
-          title: item.title,
-          date: new Date().toISOString(),
-          mood: null,
+          itemId: item.id, title: item.title,
+          date: new Date().toISOString(), mood: null,
         }))
       );
     }
     goTo('results');
+  }
+
+  // ── CALIBRATION ──
+  function handleCalibrationComplete(ratings: CalibResult[]) {
+    if (ratings.length > 0) batchCalibration(ratings);
+    setShowCalibration(false);
   }
 
   // ── RESTART ──
@@ -310,7 +294,7 @@ export default function App() {
     if (step === 'quick-vibe') { goTo('quick-type'); return; }
     if (step === 'platform' && platformEditMode) {
       setPlatformEditMode(false);
-      goTo('references');
+      goTo('results');
       return;
     }
     const flow = platformsFromProfile ? FLOW_SHORT : FLOW_FULL;
@@ -318,14 +302,18 @@ export default function App() {
     if (idx > 0) goTo(flow[idx - 1]);
   }
 
-  const MAIN_STEPS: Step[] = ['mood', 'type', 'duration', 'platform', 'references'];
-  const isMainFlow = MAIN_STEPS.includes(step);
+  const MAIN_STEPS: Step[] = ['mood', 'type', 'duration', 'platform'];
+  const isMainFlow  = MAIN_STEPS.includes(step);
   const isQuickFlow = step === 'quick-type' || step === 'quick-vibe';
-  const showHeader = isMainFlow || isQuickFlow;
+  const showHeader  = isMainFlow || isQuickFlow;
   const showProgress = isMainFlow;
-  const showNav = !!profile && step !== 'home';
+  const showNav     = !!profile && step !== 'home';
 
-  // ── LOADING ──
+  // How many interactions the user has had — used to decide calibration prompt
+  const interactionCount = profile
+    ? profile.wantToWatchItems.length + profile.dislikedItems.length + profile.satisfactionLog.length
+    : 0;
+
   if (isLoading) {
     return (
       <div className="app">
@@ -337,7 +325,6 @@ export default function App() {
     );
   }
 
-  // ── FIRST LAUNCH ──
   if (!profile) {
     return (
       <div className="app">
@@ -348,23 +335,18 @@ export default function App() {
 
   return (
     <div className="app">
-      {/* Header */}
       {showHeader && (
         <header className="app-header">
-          <button className="btn-back" onClick={back} aria-label="Retour">
-            ← Retour
-          </button>
+          <button className="btn-back" onClick={back} aria-label="Retour">← Retour</button>
           <div className="header-logo">MoodFlix</div>
           <div style={{ width: 80 }} />
         </header>
       )}
 
-      {/* Progress */}
       {showProgress && (
         <ProgressBar currentStep={step} skipPlatform={platformsFromProfile} />
       )}
 
-      {/* Screens */}
       <main className={`main-content ${animating ? 'fade-out' : 'fade-in'} ${showNav ? 'with-nav' : ''}`}>
 
         {/* ── HOME ── */}
@@ -388,6 +370,11 @@ export default function App() {
               <button className="btn-start btn-start-ghost" onClick={startQuickMode}>
                 🎲 Je sais pas
               </button>
+              {interactionCount < 5 && (
+                <button className="btn-calibrate" onClick={() => setShowCalibration(true)}>
+                  🎯 Calibrer mes goûts
+                </button>
+              )}
               <p className="home-disclaimer">Sans inscription · Sans pub · Données locales</p>
             </div>
           </div>
@@ -423,46 +410,13 @@ export default function App() {
                 onClick={handlePlatformNext}
                 disabled={choices.platforms.length === 0}
               >
-                {platformEditMode ? 'Enregistrer et continuer →' : 'Suivant →'}
+                {platformEditMode ? 'Enregistrer et continuer →' : 'Voir mes recommandations ✨'}
               </button>
               {choices.platforms.length === 0 && (
                 <p className="step-hint">Sélectionne au moins une plateforme</p>
               )}
             </div>
           </div>
-        )}
-
-        {/* ── REFERENCES ── */}
-        {step === 'references' && (
-          <>
-            {/* Platform chips — shown when platform step was skipped */}
-            {platformsFromProfile && !platformEditMode && choices.platforms.length > 0 && (
-              <div className="platform-chips-bar">
-                <span className="platform-chips-label">Plateformes :</span>
-                <div className="platform-chips-list">
-                  {choices.platforms.map(p => (
-                    <span key={p} className="platform-mini-chip">{p}</span>
-                  ))}
-                </div>
-                <button className="btn-edit-platforms" onClick={handleEditPlatforms}>
-                  Modifier
-                </button>
-              </div>
-            )}
-            <ReferenceInput
-              value={choices.references}
-              onChange={r => setChoices(c => ({ ...c, references: r }))}
-              onSkip={() => handleReferences(choices.references)}
-            />
-            <div className="step-actions">
-              <button
-                className="btn-next"
-                onClick={() => handleReferences(choices.references)}
-              >
-                Voir mes recommandations ✨
-              </button>
-            </div>
-          </>
         )}
 
         {/* ── QUICK MODE ── */}
@@ -535,6 +489,7 @@ export default function App() {
             profile={profile}
             onReset={resetProfile}
             onUpdatePreferences={updatePreferences}
+            onCalibrate={() => setShowCalibration(true)}
           />
         )}
 
@@ -544,12 +499,19 @@ export default function App() {
         )}
       </main>
 
-      {/* Bottom nav */}
       {showNav && (
         <Navigation
           currentStep={step}
           pseudo={profile.pseudo}
           onNavigate={goTo}
+        />
+      )}
+
+      {/* ── CALIBRATION MODAL ── */}
+      {showCalibration && (
+        <CalibrationModal
+          onComplete={handleCalibrationComplete}
+          onDismiss={() => setShowCalibration(false)}
         />
       )}
     </div>

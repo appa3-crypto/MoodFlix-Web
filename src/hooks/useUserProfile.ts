@@ -138,12 +138,52 @@ export function useUserProfile() {
   function recordRecommendedHistory(entries: RecommendationHistoryEntry[]) {
     if (!profile) return;
     const newIds = new Set(entries.map(e => e.itemId));
-    // Remove old entries for same items, then append new ones, keep cap
     const kept = profile.recommendedHistory.filter(e => !newIds.has(e.itemId));
     save({
       ...profile,
       recommendedHistory: [...kept, ...entries].slice(-MAX_HISTORY),
     });
+  }
+
+  // Batch-save calibration ratings in a single write to avoid multiple re-renders
+  function batchCalibration(ratings: Array<{ itemId: number; title: string; action: 'liked' | 'disliked' }>) {
+    if (!profile) return;
+    let updated = { ...profile };
+    const historyEntries: RecommendationHistoryEntry[] = [];
+
+    for (const { itemId, title, action } of ratings) {
+      // Remove from all lists first
+      updated.wantToWatchItems = updated.wantToWatchItems.filter(id => id !== itemId);
+      updated.seenItems        = updated.seenItems.filter(id => id !== itemId);
+      updated.dislikedItems    = updated.dislikedItems.filter(id => id !== itemId);
+
+      if (action === 'liked') {
+        // Mark as seen (excluded from future recs) AND saved (for tag similarity)
+        updated.seenItems        = [...updated.seenItems, itemId];
+        updated.wantToWatchItems = [...updated.wantToWatchItems, itemId];
+        if (!updated.likedItems.includes(itemId)) {
+          updated.likedItems = [...updated.likedItems, itemId];
+        }
+        // Add to satisfaction log
+        const existing = updated.satisfactionLog.filter(e => e.itemId !== itemId);
+        updated.satisfactionLog = [
+          ...existing,
+          { itemId, rating: 'loved', reasons: ['calibration'], date: new Date().toISOString() },
+        ];
+        historyEntries.push({ itemId, title, date: new Date().toISOString(), mood: null });
+      } else if (action === 'disliked') {
+        updated.dislikedItems = [...updated.dislikedItems, itemId];
+      }
+    }
+
+    // Add history entries so tag similarity lookup can find titles
+    if (historyEntries.length > 0) {
+      const newIds = new Set(historyEntries.map(e => e.itemId));
+      const kept = updated.recommendedHistory.filter(e => !newIds.has(e.itemId));
+      updated.recommendedHistory = [...kept, ...historyEntries].slice(-MAX_HISTORY);
+    }
+
+    save(updated);
   }
 
   return {
@@ -158,5 +198,6 @@ export function useUserProfile() {
     undoAction,
     addSatisfaction,
     recordRecommendedHistory,
+    batchCalibration,
   };
 }
