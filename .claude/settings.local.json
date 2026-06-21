@@ -5,7 +5,8 @@
       "Read(//c/Program Files/**)",
       "PowerShell(Get-ChildItem \"C:\\\\Program Files\\\\\", \"C:\\\\Program Files \\(x86\\)\\\\\", \"$env:LOCALAPPDATA\\\\Programs\\\\\" -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -match \"node|nvm|fnm\" } | Select-Object FullName)",
       "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\appa3\\\\Desktop\\\\MoodFlix\" -Recurse -Exclude node_modules -Force | Where-Object { -not $_.PSIsContainer } | Select-Object -ExpandProperty FullName | Sort-Object | ForEach-Object { $_.Replace\\(\"c:\\\\Users\\\\appa3\\\\Desktop\\\\MoodFlix\\\\\", \"\"\\) })",
-      "PowerShell($key = \"abef44271670178942ee3d247b0d2cbc\"; $r = Invoke-WebRequest -Uri \"https://api.themoviedb.org/3/movie/550?api_key=$key\" -UseBasicParsing -ErrorAction SilentlyContinue; $r.StatusCode)"
+      "PowerShell($key = \"abef44271670178942ee3d247b0d2cbc\"; $r = Invoke-WebRequest -Uri \"https://api.themoviedb.org/3/movie/550?api_key=$key\" -UseBasicParsing -ErrorAction SilentlyContinue; $r.StatusCode)",
+      "PowerShell($git = \"C:\\\\Users\\\\appa3\\\\AppData\\\\Local\\\\GitHubDesktop\\\\app-3.5.12\\\\resources\\\\app\\\\git\\\\cmd\\\\git.exe\"; Set-Location \"c:\\\\Users\\\\appa3\\\\Desktop\\\\MoodFlix\"; & $git status 2>&1)"
     ],
     "additionalDirectories": [
       "c:\\Users\\appa3\\.claude\\projects\\c--Users-appa3-Desktop-MoodFlix\\memory"
