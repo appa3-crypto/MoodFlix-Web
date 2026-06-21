@@ -2677,6 +2677,51 @@ textarea {
   line-height: 1.55;
 }
 
+.archetype-traits {
+  margin-top: 12px;
+}
+
+.archetype-traits-label,
+.archetype-influences-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+}
+
+.archetype-traits-list,
+.archetype-influences-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.archetype-trait-chip {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-light);
+  background: rgba(139, 92, 246, 0.12);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  border-radius: 99px;
+  padding: 3px 10px;
+}
+
+.archetype-influences {
+  margin-top: 10px;
+}
+
+.archetype-influence-chip {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 99px;
+  padding: 3px 10px;
+}
+
 /* ═══════════════════════════════════════════════
    V3 — TMDB ENRICHMENT STYLES
 ═══════════════════════════════════════════════ */

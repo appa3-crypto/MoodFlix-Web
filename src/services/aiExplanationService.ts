@@ -1,4 +1,5 @@
 import type { ScoredRecommendation, UserProfile, Mood, AIExplanation } from '../types';
+import { detectSpectatorProfile, hasEnoughData } from '../utils/spectatorProfile';
 
 const AI_ENABLED = import.meta.env.VITE_AI_PROVIDER === 'enabled';
 
@@ -81,6 +82,38 @@ export async function getAIExplanation(
     .filter(e => e.rating === 'disappointed' || e.rating === 'bad')
     .flatMap(e => e.reasons);
 
+  // Titles of items the user saved/liked — gives context to the AI
+  const likedIds = new Set([
+    ...(profile?.wantToWatchItems ?? []),
+    ...(profile?.likedItems ?? []),
+    ...(profile?.satisfactionLog ?? [])
+      .filter(e => e.rating === 'loved' || e.rating === 'good')
+      .map(e => e.itemId),
+  ]);
+  const likedTitles = (profile?.recommendedHistory ?? [])
+    .filter(e => likedIds.has(e.itemId))
+    .map(e => e.title)
+    .filter((t, i, arr) => arr.indexOf(t) === i)
+    .slice(-5);
+
+  // Titles of items the user explicitly rejected
+  const dislikedIds = new Set([
+    ...(profile?.dislikedItems ?? []),
+    ...(profile?.satisfactionLog ?? [])
+      .filter(e => e.rating === 'disappointed' || e.rating === 'bad')
+      .map(e => e.itemId),
+  ]);
+  const dislikedTitles = (profile?.recommendedHistory ?? [])
+    .filter(e => dislikedIds.has(e.itemId))
+    .map(e => e.title)
+    .filter((t, i, arr) => arr.indexOf(t) === i)
+    .slice(-3);
+
+  // Spectator archetype
+  const spectatorArchetype = profile && hasEnoughData(profile)
+    ? detectSpectatorProfile(profile).label
+    : null;
+
   const body = {
     item: {
       title:          item.title,
@@ -100,6 +133,9 @@ export async function getAIExplanation(
     pseudo:             profile?.pseudo ?? 'toi',
     preferredPlatforms: profile?.preferredPlatforms ?? [],
     topMoods,
+    likedTitles,
+    dislikedTitles,
+    spectatorArchetype,
     satisfactionSummary: {
       loved:       (profile?.satisfactionLog ?? []).filter(e => e.rating === 'loved' || e.rating === 'good').length,
       disappointed:(profile?.satisfactionLog ?? []).filter(e => e.rating === 'disappointed' || e.rating === 'bad').length,

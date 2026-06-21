@@ -66,3 +66,22 @@ export function hasEnoughData(profile: UserProfile): boolean {
   const totalMoods = Object.values(profile.frequentMoods).reduce((s, v) => s + v, 0);
   return totalMoods >= 2;
 }
+
+/** Returns titles of items that influenced the spectator profile (liked/saved) */
+export function getInfluentialItems(profile: UserProfile, count = 4): string[] {
+  const influentialIds = new Set([
+    ...profile.wantToWatchItems,
+    ...profile.likedItems,
+    ...profile.satisfactionLog
+      .filter(e => e.rating === 'loved' || e.rating === 'good')
+      .map(e => e.itemId),
+  ]);
+
+  return profile.recommendedHistory
+    .filter(e => influentialIds.has(e.itemId))
+    .slice(-(count * 2))
+    .reverse()
+    .map(e => e.title)
+    .filter((t, i, arr) => arr.indexOf(t) === i)
+    .slice(0, count);
+}

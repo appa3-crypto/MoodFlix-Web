@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { UserProfile, ContentType, Duration, Platform } from '../types';
-import { detectSpectatorProfile, hasEnoughData } from '../utils/spectatorProfile';
+import { detectSpectatorProfile, hasEnoughData, getInfluentialItems } from '../utils/spectatorProfile';
 
 interface Props {
   profile: UserProfile;
@@ -214,6 +214,11 @@ export function ProfilePage({ profile, onReset, onUpdatePreferences }: Props) {
       {/* V4 — Spectator archetype */}
       {hasEnoughData(profile) && (() => {
         const arch = detectSpectatorProfile(profile);
+        const influences = getInfluentialItems(profile);
+        const topMoods = Object.entries(profile.frequentMoods)
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 3)
+          .map(([m]) => MOOD_LABELS[m] ?? m);
         return (
           <div className="profile-section">
             <h2 className="profile-section-title">Ton profil spectateur</h2>
@@ -224,6 +229,26 @@ export function ProfilePage({ profile, onReset, onUpdatePreferences }: Props) {
                 <p className="archetype-desc">{arch.description}</p>
               </div>
             </div>
+            {topMoods.length > 0 && (
+              <div className="archetype-traits">
+                <p className="archetype-traits-label">Tes tendances :</p>
+                <div className="archetype-traits-list">
+                  {topMoods.map(m => (
+                    <span key={m} className="archetype-trait-chip">{m}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {influences.length > 0 && (
+              <div className="archetype-influences">
+                <p className="archetype-influences-label">Basé sur :</p>
+                <div className="archetype-influences-list">
+                  {influences.map(title => (
+                    <span key={title} className="archetype-influence-chip">{title}</span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         );
       })()}

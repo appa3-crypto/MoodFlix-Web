@@ -34,6 +34,9 @@ interface ExplainBody {
   pseudo:              string;
   preferredPlatforms:  string[];
   topMoods:            string[];
+  likedTitles:         string[];
+  dislikedTitles:      string[];
+  spectatorArchetype:  string | null;
   satisfactionSummary: { loved: number; disappointed: number; badReasons: string[] };
   wantToWatchCount:    number;
 }
@@ -43,29 +46,53 @@ function buildPrompt(b: ExplainBody): string {
   const topMoods = b.topMoods.slice(0, 2).map(m => MOOD_LABELS[m] ?? m).join(', ') || 'aucune encore';
   const { item }  = b;
 
-  return `Tu es MoodFlix IA. Explique en français pourquoi "${item.title}" correspond à ${b.pseudo} ce soir.
+  const likedSection = b.likedTitles.length > 0
+    ? `- Contenus appréciés : ${b.likedTitles.join(', ')}`
+    : '- Historique : pas encore assez de données';
 
-Profil :
-- Humeur du moment : ${moodNow}
+  const dislikedSection = b.dislikedTitles.length > 0
+    ? `- Contenus refusés : ${b.dislikedTitles.join(', ')}`
+    : '';
+
+  const archetypeSection = b.spectatorArchetype
+    ? `- Profil spectateur : ${b.spectatorArchetype}`
+    : '';
+
+  const badReasonsSection = b.satisfactionSummary.badReasons.length > 0
+    ? `- Ce qu'il n'aime pas : ${b.satisfactionSummary.badReasons.join(', ')}`
+    : '';
+
+  return `Tu es MoodFlix IA, un système d'analyse cinématographique personnalisé.
+Produis une explication analytique pour ${b.pseudo}, pas une reformulation de tags.
+
+PROFIL DE ${b.pseudo} :
+- Humeur ce soir : ${moodNow}
 - Humeurs favorites : ${topMoods}
-- Contenus en liste "ça me tente" : ${b.wantToWatchCount}
+${archetypeSection}
+${likedSection}
+${dislikedSection}
+${badReasonsSection}
 - Avis positifs / négatifs : ${b.satisfactionSummary.loved} / ${b.satisfactionSummary.disappointed}
-${b.satisfactionSummary.badReasons.length > 0 ? `- Ce qu'il n'aime pas : ${b.satisfactionSummary.badReasons.join(', ')}` : ''}
 
-Contenu :
-- "${item.title}" (${item.type === 'movie' ? 'film' : 'série'})
-- Tags : ${item.tags.join(', ')}
+CONTENU À ANALYSER : "${item.title}" (${item.type === 'movie' ? 'film' : 'série'})
 - Atmosphère : ${item.atmosphere}
 - Scores : Mystère ${item.mysteryScore}/10, Émotion ${item.emotionScore}/10, Humour ${item.humorScore}/10, Peur ${item.fearScore}/10, Complexité ${item.complexityScore}/10
-${item.overview ? `- Synopsis : ${item.overview.slice(0, 200)}` : ''}
+${item.overview ? `- Synopsis : ${item.overview.slice(0, 250)}` : ''}
 ${item.voteAverage ? `- Note TMDB : ${item.voteAverage.toFixed(1)}/10` : ''}
 
-Réponds UNIQUEMENT avec ce JSON (aucun texte avant ou après) :
+INSTRUCTIONS :
+- Identifie les connexions réelles entre le profil de ${b.pseudo} et ce contenu
+- Si ${b.pseudo} a aimé des œuvres similaires (${b.likedTitles.slice(0, 2).join(', ') || 'aucune encore'}), établis le parallèle précis
+- Parle à la 2ème personne ("Tu as tendance à...", "Ce contenu partage avec...")
+- Ne reformule PAS les tags : analyse les patterns émotionnels et narratifs
+- Le risque doit être précis et personnalisé basé sur ses dislikes
+
+FORMAT JSON REQUIS (aucun texte avant ou après) :
 {
-  "explanation": "phrase engageante max 130 caractères qui s'adresse directement à ${b.pseudo}",
-  "reasons": ["raison concise 1", "raison concise 2", "raison concise 3"],
-  "riskLevel": "risque de déception court (ex: Faible — si tu aimes les films lents)",
-  "confidence": 0.8
+  "explanation": "analyse personnalisée max 150 caractères, directement adressée à ${b.pseudo}",
+  "reasons": ["connexion analytique 1", "connexion analytique 2", "connexion analytique 3"],
+  "riskLevel": "risque précis basé sur son profil (ex: Élevé — tu as signalé préférer les rythmes rapides)",
+  "confidence": 0.85
 }`;
 }
 
