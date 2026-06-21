@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { ScoredRecommendation, SatisfactionRating, UserProfile, Mood, AIExplanation } from '../types';
 import { SatisfactionModal } from './SatisfactionModal';
 import { getAIExplanation } from '../services/aiExplanationService';
@@ -44,6 +44,9 @@ export function RecommendationCard({ item, rank, profile, mood, onAction, onUndo
   const [explanation,        setExplanation]         = useState<AIExplanation | null>(null);
   const [loadingExplanation, setLoadingExplanation]  = useState(false);
   const [showExplanation,    setShowExplanation]     = useState(false);
+  const [posterFailed,       setPosterFailed]        = useState(false);
+
+  useEffect(() => { setPosterFailed(false); }, [item.id, item.posterUrl]);
 
   const compat              = computeCompatibility(item, profile, mood);
   const compatLabel         = compatibilityLabel(compat.total);
@@ -125,13 +128,13 @@ export function RecommendationCard({ item, rank, profile, mood, onAction, onUndo
 
       {/* Poster */}
       <div className="card-poster" style={{ background: item.posterColor }}>
-        {item.posterUrl ? (
+        {item.posterUrl && !posterFailed ? (
           <>
             <img
               src={item.posterUrl}
               alt={item.title}
               className="card-poster-img"
-              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              onError={() => setPosterFailed(true)}
             />
             <div className="card-poster-gradient" />
           </>
