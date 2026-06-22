@@ -22,7 +22,7 @@ export function WatchReminderBanner({ plan, onWatched, onNotYet, onAbandoned }: 
           : <span className="wr-emoji">{plan.posterEmoji}</span>
         }
         <div className="wr-text">
-          <p className="wr-question">As-tu regardé ?</p>
+          <p className="wr-question">Tu l'as regardé ?</p>
           <p className="wr-title">{plan.title}</p>
         </div>
       </div>

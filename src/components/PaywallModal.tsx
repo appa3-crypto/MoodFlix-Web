@@ -4,12 +4,12 @@ interface Props {
   onActivate: () => void;
 }
 
-const FEATURES = [
-  '"Choisis pour moi" illimité',
-  'Relances illimitées',
-  'Mode couple',
-  'Statistiques avancées',
-  'Historique complet',
+const PERKS = [
+  { icon: '🎬', text: 'Recommandations illimitées chaque jour' },
+  { icon: '🎲', text: '« Choisis pour moi » illimité' },
+  { icon: '💑', text: 'Mode couple' },
+  { icon: '📊', text: 'Historique & statistiques complets' },
+  { icon: '🚀', text: 'Nouveautés TMDB en priorité' },
 ];
 
 export function PaywallModal({ feature, onClose, onActivate }: Props) {
@@ -19,28 +19,37 @@ export function PaywallModal({ feature, onClose, onActivate }: Props) {
         <button className="paywall-close" onClick={onClose} aria-label="Fermer">✕</button>
 
         <div className="paywall-crown">👑</div>
-        <h2 className="paywall-title">MoodFlix Premium</h2>
-        <p className="paywall-blocked">Fonctionnalité verrouillée :<br /><strong>{feature}</strong></p>
+        <h2 className="paywall-title">Arrête de perdre du temps à chercher.</h2>
+
+        {feature && (
+          <p className="paywall-blocked">
+            <strong>{feature}</strong> est réservé aux membres Premium.
+          </p>
+        )}
 
         <ul className="paywall-list">
-          {FEATURES.map(f => (
-            <li key={f} className="paywall-item">
-              <span className="paywall-check">✅</span>
-              {f}
+          {PERKS.map(p => (
+            <li key={p.text} className="paywall-item">
+              <span className="paywall-icon">{p.icon}</span>
+              <span>{p.text}</span>
             </li>
           ))}
         </ul>
 
         <div className="paywall-price-block">
-          <span className="paywall-amount">2,99 €</span>
-          <span className="paywall-period"> / mois</span>
+          <div className="paywall-trial-badge">7 jours gratuits</div>
+          <div className="paywall-price-row">
+            <span className="paywall-amount">2,99 €</span>
+            <span className="paywall-period"> / mois ensuite</span>
+          </div>
+          <p className="paywall-reassurance">Annulable à tout moment · Sans engagement</p>
         </div>
 
         <button className="paywall-btn-primary" onClick={onActivate}>
-          👑 Débloquer Premium
+          Essayer gratuitement — 7 jours
         </button>
         <button className="paywall-btn-later" onClick={onClose}>
-          Plus tard
+          Pas maintenant
         </button>
       </div>
     </div>

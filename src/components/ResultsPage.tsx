@@ -14,6 +14,7 @@ interface Props {
   onSatisfaction:(itemId: number, rating: SatisfactionRating, reasons: string[]) => void;
   onSuggestOther: () => void;
   onChooseForMe?: () => void;
+  onQuickMode?:   () => void;
 }
 
 const MOOD_LABELS: Record<string, string> = {
@@ -38,6 +39,7 @@ export function ResultsPage({
   onSatisfaction,
   onSuggestOther,
   onChooseForMe,
+  onQuickMode,
 }: Props) {
   const mood: Mood | null = choices.mood;
   const moodLabel         = mood ? MOOD_LABELS[mood] : null;
@@ -80,9 +82,19 @@ export function ResultsPage({
         </h2>
 
         {!hasResults && !isSearching && (
-          <p className="results-empty">
-            Tu as vu ou refusé tous les contenus correspondants. Reviens après avoir regardé quelques suggestions !
-          </p>
+          <div className="results-empty-state">
+            <div className="empty-state-icon">🔍</div>
+            <h3 className="empty-state-title">Rien de parfait pour ce soir…</h3>
+            <p className="empty-state-desc">
+              Tes critères sont peut-être un peu précis, ou tu as déjà vu tous les contenus correspondants.
+            </p>
+            <div className="empty-state-actions">
+              <button className="btn-restart" onClick={onRestart}>🔄 Modifier mes critères</button>
+              {onQuickMode && (
+                <button className="btn-suggest-other" onClick={onQuickMode}>⚡ Essayer le mode rapide</button>
+              )}
+            </div>
+          </div>
         )}
       </div>
 

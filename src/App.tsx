@@ -25,6 +25,7 @@ import { ChooseForMeModal } from './components/ChooseForMeModal';
 import { WatchReminderBanner } from './components/WatchReminderBanner';
 import { CoupleModeSetup } from './components/CoupleModeSetup';
 import { PaywallModal } from './components/PaywallModal';
+import { OnboardingScreen } from './components/OnboardingScreen';
 import { useUserProfile } from './hooks/useUserProfile';
 import { useFreemium } from './hooks/useFreemium';
 import { getTopRecommendations, getQuickRecommendations, getHiddenGem } from './utils/recommendationEngine';
@@ -84,8 +85,12 @@ export default function App() {
   const [tmdbPool, setTmdbPool] = useState<Recommendation[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hiddenGem, setHiddenGem] = useState<ScoredRecommendation | null>(null);
+  const [onboardingDone,   setOnboardingDone]   = useState<boolean>(() => {
+    try { return localStorage.getItem('moodflix_onboarding_done') === 'true'; } catch { return false; }
+  });
   const [showCalibration,  setShowCalibration]  = useState(false);
   const [showChooseForMe,  setShowChooseForMe]  = useState(false);
+  const [cfmItems,         setCfmItems]         = useState<ScoredRecommendation[]>([]);
   const [showCouple,       setShowCouple]       = useState(false);
   const [showPaywall,      setShowPaywall]      = useState(false);
   const [paywallFeature,   setPaywallFeature]   = useState('');
@@ -309,19 +314,38 @@ export default function App() {
   // ── CHOISIS POUR MOI ──
   function handleChooseForMe() {
     if (!freemium.canUse('chooseForMe')) {
-      setPaywallFeature('Choisis pour moi illimité');
-      setShowPaywall(true);
+      handleNeedPremium('"Choisis pour moi" illimité');
       return;
     }
     freemium.consume('chooseForMe');
+
+    // Build pool: use search results if available, otherwise generate from full catalog
+    let pool: ScoredRecommendation[];
+    if (results.length > 0) {
+      pool = [...results, ...(hiddenGem ? [hiddenGem] : [])];
+    } else if (profile) {
+      const generated = getTopRecommendations(
+        ALL_ITEMS,
+        { mood: null, type: profile.preferredType, duration: profile.preferredDuration, platforms: profile.preferredPlatforms, references: '' },
+        profile,
+        15,
+        [],
+      );
+      pool = generated.length > 0
+        ? generated
+        : (ALL_ITEMS as Recommendation[]).map(i => ({ ...i, score: 1 }) as ScoredRecommendation);
+    } else {
+      pool = (ALL_ITEMS as Recommendation[]).map(i => ({ ...i, score: 1 }) as ScoredRecommendation);
+    }
+
+    setCfmItems(pool);
     setShowChooseForMe(true);
   }
 
   function handleChooseConfirm(plan: WatchPlan) {
     planWatch(plan);
     setShowChooseForMe(false);
-    // Also record as "like" in profile
-    const item = [...results, ...(hiddenGem ? [hiddenGem] : [])].find(r => r.id === plan.itemId);
+    const item = cfmItems.find(r => r.id === plan.itemId);
     if (item) {
       recordAction(plan.itemId, 'like', {
         title: item.title, type: item.type,
@@ -329,6 +353,7 @@ export default function App() {
         posterColor: item.posterColor, tmdbId: item.tmdbId,
       });
     }
+    setCfmItems([]);
   }
 
   // ── WATCH REMINDER ──
@@ -409,9 +434,19 @@ export default function App() {
   }
 
   if (!profile) {
-    function handleFirstProfile(pseudo: string, platforms: import('./types').Platform[]) {
+    if (!onboardingDone) {
+      return (
+        <div className="app">
+          <OnboardingScreen onComplete={() => {
+            try { localStorage.setItem('moodflix_onboarding_done', 'true'); } catch {}
+            setOnboardingDone(true);
+          }} />
+        </div>
+      );
+    }
+    function handleFirstProfile(pseudo: string, platforms: Platform[]) {
       createProfile(pseudo, platforms);
-      setShowCalibration(true); // auto-launch calibration for new users
+      setShowCalibration(true);
     }
     return (
       <div className="app">
@@ -441,17 +476,24 @@ export default function App() {
           <div className="home-screen">
             <div className="home-glow" />
             <div className="home-content">
-              <div className="home-logo">MoodFlix</div>
+
+              {/* Header */}
+              <div className="home-header-row">
+                <div className="home-logo">MoodFlix</div>
+                {freemium.isPremium && <div className="home-premium-pill">👑 Premium</div>}
+              </div>
+
+              {/* Hero */}
               <h1 className="home-headline">
-                Bonsoir, {profile.pseudo} —{' '}
-                <span className="headline-accent">qu'est-ce qu'on regarde ce soir ?</span>
+                Trouve quoi regarder<br />
+                <span className="headline-accent">en 30 secondes.</span>
               </h1>
               <p className="home-sub">
-                Arrête de scroller. Trouve quoi regarder en 30 secondes.
+                Bonsoir, {profile.pseudo} — dis ton humeur, on fait le reste.
               </p>
 
-              {/* Watch reminder banner (shows after planned watch time) */}
-              {profile.watchPlan && profile.watchPlan.status === 'planned' && (
+              {/* Reminder de visionnage */}
+              {profile.watchPlan?.status === 'planned' && (
                 <WatchReminderBanner
                   plan={profile.watchPlan}
                   onWatched={handleWatched}
@@ -460,29 +502,73 @@ export default function App() {
                 />
               )}
 
+              {/* Compteur gratuit (discret) */}
+              {!freemium.isPremium && (() => {
+                const rem = freemium.getRemainingUses('searches');
+                return (
+                  <div className={`home-usage-counter${rem === 0 ? ' home-usage-limit' : ''}`}>
+                    {rem > 0
+                      ? `${rem} recommandation${rem > 1 ? 's' : ''} gratuite${rem > 1 ? 's' : ''} restante${rem > 1 ? 's' : ''} aujourd'hui`
+                      : <><span>⚠️ Limite du jour atteinte</span><button className="home-usage-upgrade" onClick={() => handleNeedPremium('Recommandations illimitées')}>Passer à Premium</button></>
+                    }
+                  </div>
+                );
+              })()}
+
+              {/* CTA principal */}
               <button className="btn-start" onClick={startNormalSearch}>
-                🎬 Trouver quoi regarder →
+                🎬 Trouver un film ou une série
               </button>
-              <button className="btn-start btn-start-secondary" onClick={startQuickMode}>
-                ⚡ Mode rapide — 2 questions
+              <button className="btn-quickmode-link" onClick={startQuickMode}>
+                ⚡ Mode rapide — 2 questions seulement
               </button>
-              <div className="home-row-btns">
-                <button className="btn-home-sm" onClick={() => {
-                  if (!freemium.isPremium) { handleNeedPremium('Mode couple'); return; }
-                  setShowCouple(true);
-                }}>
-                  💑 Mode couple{!freemium.isPremium ? ' 🔒' : ''}
-                </button>
-                {interactionCount < 5 && (
-                  <button className="btn-home-sm" onClick={() => setShowCalibration(true)}>
-                    🎯 Calibrer mes goûts
+
+              {/* Choisis pour moi */}
+              {(() => {
+                const cfmRem = freemium.isPremium ? null : freemium.getRemainingUses('chooseForMe');
+                return (
+                  <button className="btn-cfm-home" onClick={handleChooseForMe}>
+                    🎲 Choisis pour moi
+                    {cfmRem !== null && (
+                      <span className="btn-cfm-tag">
+                        {cfmRem > 0 ? `${cfmRem}/1 gratuit` : '🔒'}
+                      </span>
+                    )}
                   </button>
-                )}
+                );
+              })()}
+
+              {/* Cartes de fonctionnalités */}
+              <div className="home-cards-grid">
+                <button
+                  className="home-feature-card"
+                  onClick={() => {
+                    if (!freemium.isPremium) { handleNeedPremium('Mode couple'); return; }
+                    setShowCouple(true);
+                  }}
+                >
+                  <span className="hfc-icon">💑</span>
+                  <span className="hfc-title">Mode couple</span>
+                  <span className="hfc-sub">Trouvez un film pour deux</span>
+                  {!freemium.isPremium && <span className="hfc-lock">🔒</span>}
+                </button>
+                <button className="home-feature-card" onClick={() => goTo('history')}>
+                  <span className="hfc-icon">🎬</span>
+                  <span className="hfc-title">Mon activité</span>
+                  <span className="hfc-sub">
+                    {profile.likedItems.length > 0 || profile.wantToWatchItems.length > 0
+                      ? `${profile.likedItems.length} aimé · ${profile.wantToWatchItems.length} à voir`
+                      : 'Rien encore'}
+                  </span>
+                </button>
               </div>
 
-              {freemium.isPremium && (
-                <div className="home-premium-badge">👑 Premium actif</div>
+              {interactionCount < 5 && (
+                <button className="btn-home-calibrate" onClick={() => setShowCalibration(true)}>
+                  🎯 Calibrer mes goûts pour de meilleures recommandations
+                </button>
               )}
+
               <p className="home-disclaimer">Sans inscription · Sans pub · Données locales</p>
             </div>
           </div>
@@ -589,6 +675,7 @@ export default function App() {
             onSatisfaction={handleSatisfaction}
             onSuggestOther={handleSuggestOther}
             onChooseForMe={handleChooseForMe}
+            onQuickMode={startQuickMode}
           />
         )}
 
@@ -625,11 +712,11 @@ export default function App() {
       )}
 
       {/* ── CHOISIS POUR MOI ── */}
-      {showChooseForMe && results.length > 0 && (
+      {showChooseForMe && cfmItems.length > 0 && (
         <ChooseForMeModal
-          items={[...results, ...(hiddenGem ? [hiddenGem] : [])]}
+          items={cfmItems}
           onConfirm={handleChooseConfirm}
-          onDismiss={() => setShowChooseForMe(false)}
+          onDismiss={() => { setShowChooseForMe(false); setCfmItems([]); }}
           canRelaunch={freemium.canUse('relaunches')}
           onNeedPremium={() => handleNeedPremium('Relances illimitées')}
         />

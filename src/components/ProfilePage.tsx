@@ -320,9 +320,9 @@ export function ProfilePage({ profile, onReset, onUpdatePreferences, onCalibrate
 
       {/* Calibration */}
       <div className="profile-section">
-        <h2 className="profile-section-title">Améliorer mes recommandations</h2>
+        <h2 className="profile-section-title">Affiner mes recommandations</h2>
         <p className="profile-section-desc">
-          Note 12 films et séries connus pour que MoodFlix comprenne mieux tes goûts.
+          Note quelques films connus pour que MoodFlix te connaisse mieux.
         </p>
         <button className="btn-calibrate-profile" onClick={onCalibrate}>
           🎯 Calibrer mes goûts
