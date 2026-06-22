@@ -44,13 +44,18 @@ export function RecommendationCard({ item, rank, profile, mood, onAction, onUndo
   const [explanation,        setExplanation]         = useState<AIExplanation | null>(null);
   const [loadingExplanation, setLoadingExplanation]  = useState(false);
   const [showExplanation,    setShowExplanation]     = useState(false);
-  const [posterFailed,       setPosterFailed]        = useState(false);
+  const [heroFailed,         setHeroFailed]          = useState(false);
 
-  useEffect(() => { setPosterFailed(false); }, [item.id, item.posterUrl]);
+  useEffect(() => { setHeroFailed(false); }, [item.id, item.backdropUrl, item.posterUrl]);
 
   const compat              = computeCompatibility(item, profile, mood);
   const compatLabel         = compatibilityLabel(compat.total);
   const existingSatisfaction= profile?.satisfactionLog.find(e => e.itemId === item.id);
+
+  // Pick best available hero image: backdrop > poster
+  const heroSrc = !heroFailed
+    ? (item.backdropUrl ?? item.posterUrl ?? null)
+    : null;
 
   function showFeedback(msg: string) {
     setFeedbackMsg(msg);
@@ -123,42 +128,41 @@ export function RecommendationCard({ item, rank, profile, mood, onAction, onUndo
 
   return (
     <div className={`card ${reaction === 'like' ? 'card-liked' : ''}`}>
-      {/* Feedback toast */}
       {feedbackMsg && <div className="card-feedback" role="status">{feedbackMsg}</div>}
 
-      {/* Poster */}
-      <div className="card-poster" style={{ background: item.posterColor }}>
-        {item.posterUrl && !posterFailed ? (
-          <>
-            <img
-              src={item.posterUrl}
-              alt={item.title}
-              className="card-poster-img"
-              onError={() => setPosterFailed(true)}
-            />
-            <div className="card-poster-gradient" />
-          </>
-        ) : (
-          <span className="card-poster-emoji">{item.posterEmoji}</span>
+      {/* ── HERO (cinematic backdrop / poster) ── */}
+      <div className="card-hero" style={{ background: item.posterColor }}>
+        {heroSrc && (
+          <img
+            src={heroSrc}
+            alt={item.title}
+            className="card-hero-img"
+            style={{ objectPosition: item.backdropUrl && !heroFailed ? 'center' : 'center top' }}
+            onError={() => setHeroFailed(true)}
+          />
         )}
-        <div className="card-rank">#{rank}</div>
-        <div className="card-type-badge">
-          {item.type === 'movie' ? '🎬 Film' : '📺 Série'}
-        </div>
-        {item.isDiscovery && (
-          <div className="discovery-badge">🔍 Découverte du soir</div>
+        {!heroSrc && (
+          <span className="card-hero-emoji">{item.posterEmoji}</span>
         )}
-      </div>
+        <div className="card-hero-gradient" />
 
-      {/* Body */}
-      <div className="card-body">
-        <div className="card-meta">
-          <div className="card-title-row">
-            <h3 className="card-title">{item.title}</h3>
+        {/* Top row: rank + badges */}
+        <div className="card-hero-top">
+          <div className="card-rank">#{rank}</div>
+          <div className="card-hero-badges">
+            {item.isDiscovery && <span className="discovery-badge">🔍 Découverte</span>}
+            <span className="card-type-badge">
+              {item.type === 'movie' ? '🎬 Film' : '📺 Série'}
+            </span>
             {compat.total >= 65 && profile && (
               <span className="compat-badge">{compat.total}%</span>
             )}
           </div>
+        </div>
+
+        {/* Bottom: title + meta */}
+        <div className="card-hero-info">
+          <h3 className="card-title">{item.title}</h3>
           <div className="card-tags-row">
             {item.availableOn && item.availableOn.length > 0 ? (
               item.availableOn.map(p => (
@@ -171,10 +175,13 @@ export function RecommendationCard({ item, rank, profile, mood, onAction, onUndo
             {item.voteAverage && item.voteAverage > 0 && (
               <span className="card-tag card-tag-rating">★ {item.voteAverage.toFixed(1)}</span>
             )}
+            {item.fromTMDB && <span className="card-tmdb-badge">TMDB</span>}
           </div>
-          {item.fromTMDB && <span className="card-tmdb-badge">via TMDB</span>}
         </div>
+      </div>
 
+      {/* ── BODY ── */}
+      <div className="card-body">
         <p className="card-atmosphere">
           {item.overview
             ? (item.overview.length > 150 ? item.overview.slice(0, 147) + '…' : item.overview)
@@ -182,11 +189,11 @@ export function RecommendationCard({ item, rank, profile, mood, onAction, onUndo
         </p>
 
         <div className="score-bars">
-          <ScoreBar label="Mystère"     value={item.mysteryScore}    color="#8B5CF6" />
-          <ScoreBar label="Émotion"     value={item.emotionScore}    color="#EC4899" />
-          <ScoreBar label="Peur"        value={item.fearScore}       color="#EF4444" />
-          <ScoreBar label="Humour"      value={item.humorScore}      color="#F59E0B" />
-          <ScoreBar label="Complexité"  value={item.complexityScore} color="#3B82F6" />
+          <ScoreBar label="Mystère"    value={item.mysteryScore}    color="#8B5CF6" />
+          <ScoreBar label="Émotion"    value={item.emotionScore}    color="#EC4899" />
+          <ScoreBar label="Peur"       value={item.fearScore}       color="#EF4444" />
+          <ScoreBar label="Humour"     value={item.humorScore}      color="#F59E0B" />
+          <ScoreBar label="Complexité" value={item.complexityScore} color="#3B82F6" />
         </div>
 
         <div className="card-reasons">
@@ -214,7 +221,6 @@ export function RecommendationCard({ item, rank, profile, mood, onAction, onUndo
           </div>
         </div>
 
-        {/* V4 — Pourquoi pour moi ? */}
         <button
           className={`btn-why ${loadingExplanation ? 'btn-why-loading' : ''} ${showExplanation && explanation ? 'btn-why-active' : ''}`}
           onClick={handleWhyForMe}
@@ -223,7 +229,6 @@ export function RecommendationCard({ item, rank, profile, mood, onAction, onUndo
           {loadingExplanation ? '⏳ Analyse en cours…' : showExplanation && explanation ? '🧠 Masquer l\'analyse' : '🧠 Pourquoi pour moi ?'}
         </button>
 
-        {/* V4 — Explanation panel */}
         {showExplanation && (
           <div className="ai-explanation-panel">
             {loadingExplanation ? (

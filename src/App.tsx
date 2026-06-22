@@ -326,9 +326,13 @@ export default function App() {
   }
 
   if (!profile) {
+    function handleFirstProfile(pseudo: string, platforms: import('./types').Platform[]) {
+      createProfile(pseudo, platforms);
+      setShowCalibration(true); // auto-launch calibration for new users
+    }
     return (
       <div className="app">
-        <ProfileSetup onComplete={createProfile} />
+        <ProfileSetup onComplete={handleFirstProfile} />
       </div>
     );
   }

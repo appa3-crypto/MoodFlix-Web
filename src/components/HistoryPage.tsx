@@ -1,4 +1,6 @@
+import { useState, useEffect, useRef } from 'react';
 import type { UserProfile, Recommendation } from '../types';
+import { getPosterByTmdbId } from '../services/tmdbService';
 
 interface Props {
   profile: UserProfile;
@@ -6,28 +8,40 @@ interface Props {
 }
 
 const CATEGORIES = [
-  { key: 'wantToWatchItems' as const, label: '❤️ Ça me tente', accent: '#EC4899' },
-  { key: 'seenItems' as const, label: '👁️ Déjà vus', accent: '#8B5CF6' },
-  { key: 'dislikedItems' as const, label: '🚫 Pas mon style', accent: '#6B7280' },
-  { key: 'tooLongItems' as const, label: '⏱️ Trop long', accent: '#F59E0B' },
+  { key: 'wantToWatchItems' as const, label: '❤️ Ça me tente',  accent: '#EC4899' },
+  { key: 'seenItems'        as const, label: '👁️ Déjà vus',     accent: '#8B5CF6' },
+  { key: 'dislikedItems'    as const, label: '🚫 Pas mon style', accent: '#6B7280' },
+  { key: 'tooLongItems'     as const, label: '⏱️ Trop long',     accent: '#F59E0B' },
 ];
 
-const RATING_LABELS: Record<string, string> = {
-  loved: '❤️ Adoré',
-  good: '👍 Bien',
-  ok: '😐 Moyen',
-  disappointed: '😔 Déçu',
-  bad: '👎 Nul',
+const RATING_EMOJI: Record<string, string> = {
+  loved: '❤️', good: '👍', ok: '😐', disappointed: '😔', bad: '👎',
 };
 
 export function HistoryPage({ profile, allItems }: Props) {
+  const [posterCache, setPosterCache] = useState<Record<number, string>>({});
+  const fetchedIds = useRef(new Set<number>());
+
   function getItem(id: number) {
     return allItems.find(i => i.id === id);
   }
-
   function getSatisfaction(id: number) {
     return profile.satisfactionLog.find(e => e.itemId === id);
   }
+
+  // Fetch TMDB posters for calibration items that have tmdbId but no posterUrl
+  useEffect(() => {
+    const allIds = CATEGORIES.flatMap(c => profile[c.key]);
+    for (const id of allIds) {
+      const item = getItem(id);
+      if (!item || item.posterUrl || !item.tmdbId || fetchedIds.current.has(item.id)) continue;
+      fetchedIds.current.add(item.id);
+      getPosterByTmdbId(item.tmdbId, item.type === 'series').then(url => {
+        if (url) setPosterCache(prev => ({ ...prev, [item.id]: url }));
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const hasHistory = CATEGORIES.some(c => profile[c.key].length > 0);
 
@@ -36,11 +50,11 @@ export function HistoryPage({ profile, allItems }: Props) {
       <div className="page-container">
         <h1 className="page-title">Mon historique</h1>
         <div className="history-empty">
-          <div className="history-empty-icon">📋</div>
+          <div className="history-empty-icon">🎬</div>
           <p className="history-empty-text">
             Ton historique est vide.
             <br />
-            Commence à explorer des recommandations !
+            Lance une recherche pour commencer !
           </p>
         </div>
       </div>
@@ -54,44 +68,54 @@ export function HistoryPage({ profile, allItems }: Props) {
       {CATEGORIES.map(({ key, label, accent }) => {
         const ids = profile[key];
         if (ids.length === 0) return null;
+        // Most recent first
+        const sorted = [...ids].reverse();
 
         return (
           <div key={key} className="history-section">
-            <h2 className="history-section-title" style={{ color: accent }}>{label}</h2>
-            <div className="history-list">
-              {ids.map(id => {
+            <h2 className="history-section-title" style={{ color: accent }}>
+              {label}
+              <span className="history-section-count">{ids.length}</span>
+            </h2>
+
+            <div className="history-grid">
+              {sorted.map(id => {
                 const item = getItem(id);
                 if (!item) return null;
                 const satisfaction = getSatisfaction(id);
+                const posterUrl = item.posterUrl ?? posterCache[item.id] ?? null;
 
                 return (
-                  <div key={id} className="history-item">
+                  <div key={id} className="history-cell">
                     <div
-                      className="history-item-poster"
+                      className="history-poster-wrap"
                       style={{ background: item.posterColor }}
                     >
-                      {item.posterUrl ? (
+                      {posterUrl ? (
                         <img
-                          src={item.posterUrl}
+                          src={posterUrl}
                           alt={item.title}
                           className="history-poster-img"
                           onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
                         />
                       ) : (
-                        <span className="history-poster-emoji">{item.posterEmoji}</span>
+                        <span className="history-poster-fallback">{item.posterEmoji}</span>
                       )}
-                    </div>
-                    <div className="history-item-info">
-                      <span className="history-item-title">{item.title}</span>
-                      <span className="history-item-meta">
-                        {item.type === 'movie' ? '🎬' : '📺'} {item.platforms[0]}
-                      </span>
+
+                      {/* Rating badge */}
                       {satisfaction && (
-                        <span className="history-item-rating">
-                          {RATING_LABELS[satisfaction.rating]}
+                        <span className="history-rating-badge">
+                          {RATING_EMOJI[satisfaction.rating]}
                         </span>
                       )}
+
+                      {/* Type badge */}
+                      <span className="history-type-badge">
+                        {item.type === 'movie' ? '🎬' : '📺'}
+                      </span>
                     </div>
+
+                    <p className="history-poster-title">{item.title}</p>
                   </div>
                 );
               })}

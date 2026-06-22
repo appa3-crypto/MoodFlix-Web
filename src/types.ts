@@ -34,6 +34,7 @@ export interface Recommendation {
   posterColor: string;
   posterEmoji: string;
   posterUrl?: string;
+  backdropUrl?: string;
   // V3 — TMDB enrichment fields
   tmdbId?: number;
   overview?: string;

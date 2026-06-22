@@ -55,6 +55,7 @@ async function getProviderNames(tmdbId: number, mediaType: 'movie' | 'tv'): Prom
 interface SearchResult {
   id: number;
   poster_path: string | null;
+  backdrop_path: string | null;
   overview: string;
   vote_average: number;
   media_type: 'movie' | 'tv';
@@ -70,6 +71,7 @@ async function searchTitle(title: string): Promise<SearchResult | null> {
 export interface TMDBEnrichment {
   tmdbId?: number;
   posterUrl?: string;
+  backdropUrl?: string;
   overview?: string;
   voteAverage?: number;
   availableOn?: string[];
@@ -103,10 +105,20 @@ export async function enrichItem(item: {
     posterUrl: result.poster_path
       ? `https://image.tmdb.org/t/p/w500${result.poster_path}`
       : item.posterUrl,
+    backdropUrl: result.backdrop_path
+      ? `https://image.tmdb.org/t/p/w780${result.backdrop_path}`
+      : undefined,
     overview: result.overview || undefined,
     voteAverage: result.vote_average > 0 ? result.vote_average : undefined,
     availableOn: providers.length > 0 ? providers : undefined,
   };
+}
+
+export async function getPosterByTmdbId(tmdbId: number, isTV: boolean): Promise<string | null> {
+  if (!API_KEY) return null;
+  const type = isTV ? 'tv' : 'movie';
+  const data = await fetchTMDB<{ poster_path: string | null }>(`/${type}/${tmdbId}`, {});
+  return data?.poster_path ? `https://image.tmdb.org/t/p/w342${data.poster_path}` : null;
 }
 
 // ── DISCOVER ─────────────────────────────────────────────────────────────────
