@@ -766,6 +766,7 @@ export default function App() {
           onComplete={handleCalibrationComplete}
           onDismiss={() => setShowCalibration(false)}
           excludeIds={profile ? [...profile.seenItems, ...profile.dislikedItems] : []}
+          catalog={rawData as Recommendation[]}
         />
       )}
 

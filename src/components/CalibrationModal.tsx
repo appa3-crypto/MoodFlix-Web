@@ -1,25 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
-import calibrationRaw from '../data/calibration.json';
-import type { CalibResult } from '../types';
+import type { Recommendation, CalibResult } from '../types';
 
 export type CalibRating = 'liked' | 'disliked' | 'seen';
 
 interface Props {
-  onComplete: (results: CalibResult[]) => void;
-  onDismiss: () => void;
+  onComplete:  (results: CalibResult[]) => void;
+  onDismiss:   () => void;
+  excludeIds?: number[];
+  catalog?:    Recommendation[];   // vrais films du catalogue principal
 }
 
-interface CalibItem {
-  id: number;
-  title: string;
-  type: string;
-  tmdbId: number;
-  posterColor: string;
-  posterEmoji: string;
-}
-
-const ITEMS = calibrationRaw as CalibItem[];
 const TMDB_KEY = import.meta.env.VITE_TMDB_API_KEY as string | undefined;
+const DECK_SIZE = 10;
 
 async function fetchPosterUrl(tmdbId: number, isTV: boolean): Promise<string | null> {
   if (!TMDB_KEY) return null;
@@ -36,60 +28,75 @@ async function fetchPosterUrl(tmdbId: number, isTV: boolean): Promise<string | n
   }
 }
 
-interface Props {
-  onComplete:  (results: CalibResult[]) => void;
-  onDismiss:   () => void;
-  excludeIds?: number[];
-}
-
-function buildDeck(excludeIds: number[]): CalibItem[] {
-  const excludeSet = new Set(excludeIds);
-  const available  = ITEMS.filter(i => !excludeSet.has(i.id));
-  // Fisher-Yates shuffle
-  const shuffled = [...available];
-  for (let i = shuffled.length - 1; i > 0; i--) {
+function shuffle<T>(arr: T[]): T[] {
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    [out[i], out[j]] = [out[j], out[i]];
   }
-  return shuffled.slice(0, Math.min(shuffled.length, 12));
+  return out;
 }
 
-export function CalibrationModal({ onComplete, onDismiss, excludeIds = [] }: Props) {
-  const [deck, setDeck] = useState<CalibItem[]>(() => buildDeck(excludeIds));
-  const [index, setIndex] = useState(0);
-  const [dragX, setDragX] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStartX, setDragStartX] = useState(0);
-  const [exiting, setExiting] = useState<'left' | 'right' | null>(null);
-  const [results, setResults] = useState<CalibResult[]>([]);
+function buildDeck(catalog: Recommendation[], excludeIds: number[]): Recommendation[] {
+  const excludeSet = new Set(excludeIds);
+  // Préférer les items avec poster/emoji + pas déjà vus/rejetés
+  const available = catalog.filter(i => !excludeSet.has(i.id) && i.id < 9001);
+  // Varier : mélanger et prendre DECK_SIZE items
+  return shuffle(available).slice(0, DECK_SIZE);
+}
+
+export function CalibrationModal({ onComplete, onDismiss, excludeIds = [], catalog = [] }: Props) {
+  const [deck,        setDeck]        = useState<Recommendation[]>(() => buildDeck(catalog, excludeIds));
+  const [index,       setIndex]       = useState(0);
+  const [dragX,       setDragX]       = useState(0);
+  const [isDragging,  setIsDragging]  = useState(false);
+  const [dragStartX,  setDragStartX]  = useState(0);
+  const [exiting,     setExiting]     = useState<'left' | 'right' | null>(null);
+  const [results,     setResults]     = useState<CalibResult[]>([]);
   const [showTutorial, setShowTutorial] = useState(true);
-  const [posterUrls, setPosterUrls] = useState<Record<number, string>>({});
+  const [posterUrls,  setPosterUrls]  = useState<Record<number, string>>({});
   const fetchedIds = useRef(new Set<number>());
 
   const item     = deck[index];
   const nextItem = deck[index + 1];
 
+  // Reconstruire le deck si catalog change (peut arriver au premier rendu)
+  useEffect(() => {
+    if (deck.length === 0 && catalog.length > 0) {
+      setDeck(buildDeck(catalog, excludeIds));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catalog.length]);
+
   function reshuffleDeck() {
-    const allExcluded = [...excludeIds, ...results.map(r => r.itemId)];
-    setDeck(buildDeck(allExcluded));
+    const alreadyRated = [...excludeIds, ...results.map(r => r.itemId)];
+    const newDeck = buildDeck(catalog, alreadyRated);
+    setDeck(newDeck);
     setIndex(0);
     setResults([]);
     setPosterUrls({});
     fetchedIds.current = new Set();
+    setShowTutorial(false);
   }
 
-  // Preload poster for current card and next card
+  // Précharger poster du card courant + suivant
   useEffect(() => {
     const toFetch = [deck[index], deck[index + 1]].filter(Boolean);
     for (const it of toFetch) {
-      if (!fetchedIds.current.has(it.id)) {
+      if (!it || fetchedIds.current.has(it.id)) continue;
+      // Si le poster est déjà dans les données du catalogue, l'utiliser directement
+      if (it.posterUrl) {
+        setPosterUrls(prev => ({ ...prev, [it.id]: it.posterUrl! }));
         fetchedIds.current.add(it.id);
-        fetchPosterUrl(it.tmdbId, it.type === 'series').then(url => {
-          if (url) setPosterUrls(prev => ({ ...prev, [it.id]: url }));
-        });
+        continue;
       }
+      if (!it.tmdbId) continue;
+      fetchedIds.current.add(it.id);
+      fetchPosterUrl(it.tmdbId, it.type === 'series').then(url => {
+        if (url) setPosterUrls(prev => ({ ...prev, [it.id]: url }));
+      });
     }
-  }, [index]);
+  }, [index, deck]);
 
   if (!item) return null;
 
@@ -105,14 +112,14 @@ export function CalibrationModal({ onComplete, onDismiss, excludeIds = [] }: Pro
 
   function makeResult(action: CalibResult['action']): CalibResult {
     return {
-      itemId: item.id,
-      title: item.title,
-      type: item.type as 'movie' | 'series',
+      itemId:      item.id,
+      title:       item.title,
+      type:        item.type as 'movie' | 'series',
       action,
-      posterUrl: posterUrls[item.id] ?? undefined,
+      posterUrl:   posterUrls[item.id] ?? item.posterUrl ?? undefined,
       posterEmoji: item.posterEmoji,
       posterColor: item.posterColor,
-      tmdbId: item.tmdbId,
+      tmdbId:      item.tmdbId,
     };
   }
 
@@ -183,14 +190,15 @@ export function CalibrationModal({ onComplete, onDismiss, excludeIds = [] }: Pro
     commitSwipe();
   }
 
-  const progress = (index / deck.length) * 100;
-
+  const progress       = (index / deck.length) * 100;
   const cardStyle: React.CSSProperties = exiting
     ? {}
     : { transform: `translateX(${dragX}px) rotate(${dragX * 0.025}deg)` };
-
   const likeOpacity = dragX > 25 && !exiting ? Math.min(1, dragX / 80) : 0;
   const nopeOpacity = dragX < -25 && !exiting ? Math.min(1, -dragX / 80) : 0;
+
+  const currentPoster = posterUrls[item.id] ?? item.posterUrl ?? null;
+  const nextPoster    = nextItem ? (posterUrls[nextItem.id] ?? nextItem.posterUrl ?? null) : null;
 
   return (
     <div
@@ -210,7 +218,7 @@ export function CalibrationModal({ onComplete, onDismiss, excludeIds = [] }: Pro
           <button
             className="calib-reshuffle"
             onClick={reshuffleDeck}
-            title="Nouvelle calibration"
+            title="Nouvelle sélection de 10 films"
             aria-label="Générer une nouvelle calibration"
           >
             🎲
@@ -229,8 +237,8 @@ export function CalibrationModal({ onComplete, onDismiss, excludeIds = [] }: Pro
         {/* Background card (next) */}
         {nextItem && (
           <div className={`calib-card calib-card-behind ${exiting ? 'calib-card-promoting' : ''}`}>
-            {posterUrls[nextItem.id]
-              ? <img src={posterUrls[nextItem.id]} className="calib-poster" alt="" draggable={false} />
+            {nextPoster
+              ? <img src={nextPoster} className="calib-poster" alt="" draggable={false} />
               : <div className="calib-poster-fallback" style={{ background: nextItem.posterColor }}>
                   <span className="calib-poster-emoji">{nextItem.posterEmoji}</span>
                 </div>
@@ -252,14 +260,15 @@ export function CalibrationModal({ onComplete, onDismiss, excludeIds = [] }: Pro
           onTouchEnd={onTouchEnd}
         >
           {/* Poster */}
-          {posterUrls[item.id]
-            ? <img src={posterUrls[item.id]} className="calib-poster" alt={item.title} draggable={false} />
+          {currentPoster
+            ? <img src={currentPoster} className="calib-poster" alt={item.title} draggable={false} />
             : <div className="calib-poster-fallback" style={{ background: item.posterColor }}>
-                <span className={`calib-poster-emoji ${TMDB_KEY ? 'calib-poster-loading' : ''}`}>{item.posterEmoji}</span>
+                <span className={`calib-poster-emoji ${TMDB_KEY ? 'calib-poster-loading' : ''}`}>
+                  {item.posterEmoji}
+                </span>
               </div>
           }
 
-          {/* Bottom gradient */}
           <div className="calib-card-gradient" />
 
           {/* LIKE stamp */}
@@ -280,7 +289,7 @@ export function CalibrationModal({ onComplete, onDismiss, excludeIds = [] }: Pro
             </p>
           </div>
 
-          {/* Tutorial overlay on first card */}
+          {/* Tutorial overlay */}
           {showTutorial && (
             <div className="calib-tutorial">
               <div className="calib-tut-side calib-tut-left">

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type { ScoredRecommendation, WatchPlan } from '../types';
+import { PosterImage } from './PosterImage';
 
 interface Props {
   items:          ScoredRecommendation[];
@@ -101,11 +102,16 @@ export function ChooseForMeModal({ items, onConfirm, onDismiss, canRelaunch, onN
         {phase === 'spinning' && (
           <div className="cfm-spin-phase">
             <p className="cfm-spin-label">🎲 Sélection en cours…</p>
-            <div className="cfm-spin-card" style={{ background: display.posterColor }}>
-              {display.posterUrl
-                ? <img src={display.posterUrl} className="cfm-spin-poster" alt="" />
-                : <span className="cfm-spin-emoji">{display.posterEmoji}</span>
-              }
+            <div className="cfm-spin-card">
+              <PosterImage
+                src={display.posterUrl ?? null}
+                alt={display.title}
+                emoji={display.posterEmoji}
+                color={display.posterColor}
+                className="cfm-spin-poster-wrap"
+                objectFit="cover"
+                objectPosition="center top"
+              />
               <div className="cfm-spin-shimmer" />
             </div>
             <p className="cfm-spin-title">{display.title}</p>

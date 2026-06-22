@@ -4,15 +4,19 @@ interface PlatformOption {
   value: Platform;
   label: string;
   color: string;
-  logo: string;
+  logo:  string;
 }
 
 const PLATFORMS: PlatformOption[] = [
-  { value: 'Netflix', label: 'Netflix', color: '#E50914', logo: 'N' },
-  { value: 'Prime Video', label: 'Prime Video', color: '#00A8E1', logo: 'P' },
-  { value: 'Disney+', label: 'Disney+', color: '#113CCF', logo: 'D+' },
-  { value: 'Canal+', label: 'Canal+', color: '#000000', logo: 'C+' },
-  { value: 'any', label: 'Peu importe', color: '#6B7280', logo: '∞' },
+  { value: 'Netflix',     label: 'Netflix',      color: '#E50914', logo: 'N'  },
+  { value: 'Prime Video', label: 'Prime Video',  color: '#00A8E1', logo: 'P'  },
+  { value: 'Disney+',     label: 'Disney+',      color: '#113CCF', logo: 'D+' },
+  { value: 'Canal+',      label: 'Canal+',       color: '#333333', logo: 'C+' },
+  { value: 'Apple TV+',   label: 'Apple TV+',    color: '#1c1c1e', logo: '🍎' },
+  { value: 'Max',         label: 'Max',          color: '#002BE7', logo: 'M'  },
+  { value: 'Paramount+',  label: 'Paramount+',   color: '#0064FF', logo: 'P+' },
+  { value: 'Crunchyroll', label: 'Crunchyroll',  color: '#F47521', logo: 'CR' },
+  { value: 'any',         label: 'Peu importe',  color: '#6B7280', logo: '∞'  },
 ];
 
 interface Props {
@@ -37,10 +41,7 @@ export function PlatformSelector({ selected, onToggle }: Props) {
               onClick={() => onToggle(p.value)}
               style={isSelected ? { borderColor: p.color, boxShadow: `0 0 0 2px ${p.color}40` } : {}}
             >
-              <span
-                className="platform-logo"
-                style={{ background: p.color }}
-              >
+              <span className="platform-logo" style={{ background: p.color }}>
                 {p.logo}
               </span>
               <span className="platform-label">{p.label}</span>

@@ -108,7 +108,12 @@ export function useUserProfile() {
   }
 
   function resetProfile() {
-    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      // Réinitialise le tuto onboarding pour que le nouvel utilisateur le revoie
+      localStorage.removeItem('moodflix_onboarding_done');
+      localStorage.removeItem('moodflix_avatar_idx');
+    } catch {}
     setProfile(null);
   }
 
