@@ -7,12 +7,14 @@ interface DailyUsage {
   date:         string; // 'YYYY-MM-DD'
   chooseForMe:  number;
   relaunches:   number;
+  searches:     number;
 }
 
 // Free tier daily limits
 export const FREE_LIMITS = {
-  chooseForMe: 2,   // "Choisis pour moi" per day
+  chooseForMe: 1,   // "Choisis pour moi" per day
   relaunches:  3,   // relaunches inside the modal per day
+  searches:    3,   // recommendation searches per day
 } as const;
 
 function todayStr(): string {
@@ -22,12 +24,13 @@ function todayStr(): string {
 function loadUsage(): DailyUsage {
   try {
     const s = localStorage.getItem(USAGE_KEY);
-    if (!s) return { date: todayStr(), chooseForMe: 0, relaunches: 0 };
-    const u = JSON.parse(s) as DailyUsage;
-    if (u.date !== todayStr()) return { date: todayStr(), chooseForMe: 0, relaunches: 0 };
-    return u;
+    const empty = { date: todayStr(), chooseForMe: 0, relaunches: 0, searches: 0 };
+    if (!s) return empty;
+    const u = JSON.parse(s) as Partial<DailyUsage> & { date: string };
+    if (u.date !== todayStr()) return empty;
+    return { ...empty, ...u };
   } catch {
-    return { date: todayStr(), chooseForMe: 0, relaunches: 0 };
+    return { date: todayStr(), chooseForMe: 0, relaunches: 0, searches: 0 };
   }
 }
 
@@ -41,12 +44,12 @@ export function useFreemium() {
   });
   const [usage, setUsage] = useState<DailyUsage>(loadUsage);
 
-  function canUse(feature: 'chooseForMe' | 'relaunches'): boolean {
+  function canUse(feature: keyof Omit<DailyUsage, 'date'>): boolean {
     if (isPremium) return true;
     return usage[feature] < FREE_LIMITS[feature];
   }
 
-  function consume(feature: 'chooseForMe' | 'relaunches') {
+  function consume(feature: keyof Omit<DailyUsage, 'date'>) {
     if (isPremium) return;
     const updated = { ...usage, [feature]: usage[feature] + 1 };
     setUsage(updated);
@@ -58,7 +61,7 @@ export function useFreemium() {
     setIsPremium(true);
   }
 
-  function getRemainingUses(feature: 'chooseForMe' | 'relaunches'): number {
+  function getRemainingUses(feature: keyof Omit<DailyUsage, 'date'>): number {
     if (isPremium) return Infinity;
     return Math.max(0, FREE_LIMITS[feature] - usage[feature]);
   }

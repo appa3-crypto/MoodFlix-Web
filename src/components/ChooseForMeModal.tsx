@@ -55,10 +55,11 @@ export function ChooseForMeModal({ items, onConfirm, onDismiss, canRelaunch, onN
 
   function handleConfirm() {
     if (!chosen) return;
-    const plannedAt = new Date().toISOString();
-    const notifyAt  = chosen.duration
-      ? new Date(Date.now() + (chosen.duration + 30) * 60_000).toISOString()
-      : undefined;
+    const plannedAt  = new Date().toISOString();
+    // Use actual duration or fall back to typical (series: 45 min, film: 120 min)
+    const defaultDur = chosen.type === 'series' ? 45 : 120;
+    const dur        = chosen.duration ?? defaultDur;
+    const notifyAt   = new Date(Date.now() + (dur + 30) * 60_000).toISOString();
     onConfirm({
       itemId:      chosen.id,
       title:       chosen.title,

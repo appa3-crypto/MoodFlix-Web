@@ -17,27 +17,25 @@ interface DisplayItem {
 }
 
 const SECTIONS = [
-  {
-    key: 'liked' as const,
-    label: '❤️ Aimés',
-    sub: 'Vus et adorés',
-    accent: '#EC4899',
-  },
-  {
-    key: 'want' as const,
-    label: '💾 À regarder',
-    sub: 'Ta liste de films à voir',
-    accent: '#8B5CF6',
-  },
+  { key: 'liked'     as const, label: '❤️ Aimés',        sub: 'Vus et adorés',           accent: '#EC4899' },
+  { key: 'want'      as const, label: '💾 À regarder',   sub: 'Ta liste de films à voir', accent: '#8B5CF6' },
+  { key: 'seen'      as const, label: '👁️ Déjà vus',     sub: 'Contenus regardés',        accent: '#3B82F6' },
+  { key: 'disliked'  as const, label: '👎 Pas mon style', sub: 'Contenus refusés',         accent: '#6B7280' },
+  { key: 'abandoned' as const, label: '🚫 Abandonnés',   sub: 'Commencés mais pas finis', accent: '#F59E0B' },
 ];
 
 export function HistoryPage({ profile, allItems }: Props) {
   const [posterFetched, setPosterFetched] = useState<Record<number, string>>({});
   const fetchedIds = useRef(new Set<number>());
 
+  // Prevent overlap: items in likedItems don't appear in want/seen sections
+  const likedSet = new Set(profile.likedItems);
   const sectionData: Record<string, number[]> = {
-    liked: [...profile.likedItems].reverse(),
-    want:  [...profile.wantToWatchItems].reverse(),
+    liked:     [...profile.likedItems].reverse(),
+    want:      [...profile.wantToWatchItems.filter(id => !likedSet.has(id))].reverse(),
+    seen:      [...profile.seenItems.filter(id => !likedSet.has(id))].reverse(),
+    disliked:  [...profile.dislikedItems].reverse(),
+    abandoned: [...(profile.abandonedItems ?? [])].reverse(),
   };
 
   // Resolve display data for an id: metaStore first, then allItems lookup

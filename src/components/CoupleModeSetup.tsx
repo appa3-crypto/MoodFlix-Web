@@ -52,16 +52,20 @@ function getCoupleRecs(
   profile: UserProfile,
   p2: CouplePrefs,
 ): (ScoredRecommendation & { scoreP1: number; scoreP2: number; scoreCouple: number })[] {
+  // Compute P1's top mood once (Object.keys order is not guaranteed by spec)
+  const topMood = Object.entries(profile.frequentMoods)
+    .sort((a, b) => b[1] - a[1])[0]?.[0];
+
   return allItems
     .filter(item => !profile.dislikedItems.includes(item.id))
     .map(item => {
-      const p1 = scoreForP1(item, profile);
+      const p1  = scoreForP1(item, profile);
       const p2s = scoreForP2(item, p2);
-      // Malus si conflit de type fort
       let bonus = 0;
-      if (p2.type !== 'both' && profile.preferredType !== 'both' && item.type !== p2.type) bonus -= 25;
-      // Bonus si les deux ont une humeur compatible
-      if (p2.moods.some(m => item.moods.includes(m)) && item.moods.some(m => m === Object.keys(profile.frequentMoods)[0])) bonus += 15;
+      // Malus if content type conflicts with either party's hard preference
+      if (p2.type !== 'both' && item.type !== p2.type) bonus -= 25;
+      // Bonus if both enjoy matching mood
+      if (topMood && p2.moods.some(m => item.moods.includes(m)) && item.moods.includes(topMood)) bonus += 15;
       const scoreCouple = Math.max(0, (p1 + p2s) / 2 + bonus);
       return { ...item, score: scoreCouple, scoreP1: p1, scoreP2: p2s, scoreCouple };
     })
@@ -189,8 +193,15 @@ export function CoupleModeSetup({ profile, allItems, onDismiss }: Props) {
             </div>
 
             {results.length === 0 ? (
-              <p className="couple-empty">Aucun film ne correspond parfaitement — essaie d'ajuster les goûts.</p>
-            ) : results.map((item, idx) => (
+              <p className="couple-empty">Aucun film ne correspond — essaie d'ajuster les goûts.</p>
+            ) : (
+              <>
+                {results[0].scoreCouple < 40 && (
+                  <p className="couple-compromise-hint">
+                    🤝 Aucun résultat parfait, mais voici le meilleur compromis trouvé.
+                  </p>
+                )}
+                {results.map((item, idx) => (
               <div key={item.id} className={`couple-card ${idx === 0 ? 'couple-card-top' : ''}`}>
                 <div className="couple-card-poster" style={{ background: item.posterColor }}>
                   {item.posterUrl
@@ -207,19 +218,21 @@ export function CoupleModeSetup({ profile, allItems, onDismiss }: Props) {
                   </p>
                   <div className="couple-scores">
                     <span className="couple-score">
-                      {profile.pseudo}: <strong>{Math.max(0, Math.round(item.scoreP1))}%</strong>
+                      {profile.pseudo}: <strong>{Math.min(100, Math.max(0, Math.round(item.scoreP1)))}%</strong>
                     </span>
                     <span className="couple-score">
-                      {name || 'Eux'}: <strong>{Math.round(item.scoreP2)}%</strong>
+                      {name || 'Eux'}: <strong>{Math.min(100, Math.max(0, Math.round(item.scoreP2)))}%</strong>
                     </span>
                     <span className="couple-score couple-score-total">
-                      Couple: <strong>{Math.round(item.scoreCouple)}%</strong>
+                      Couple: <strong>{Math.min(100, Math.round(item.scoreCouple))}%</strong>
                     </span>
                   </div>
                   <p className="couple-reason">✨ {item.shortReason}</p>
                 </div>
               </div>
             ))}
+              </>
+            )}
           </div>
         )}
       </div>

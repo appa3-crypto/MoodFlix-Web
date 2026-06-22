@@ -25,6 +25,7 @@ function defaultProfile(pseudo: string, platforms: Platform[]): UserProfile {
     seenItems: [],
     dislikedItems: [],
     tooLongItems: [],
+    abandonedItems: [],
     likedItems: [],
     frequentMoods: {},
     satisfactionLog: [],
@@ -56,6 +57,7 @@ function migrate(raw: Partial<UserProfile> & Record<string, unknown>): UserProfi
     preferredDuration: (raw.preferredDuration as Duration | null | undefined) ?? null,
     itemMetaStore: (raw.itemMetaStore as Record<number, ItemMeta> | undefined) ?? {},
     watchPlan: (raw.watchPlan as WatchPlan | null | undefined) ?? null,
+    abandonedItems: (raw.abandonedItems as number[] | undefined) ?? [],
   } as UserProfile;
 }
 
@@ -177,6 +179,32 @@ export function useUserProfile() {
     save({ ...profile, watchPlan: { ...profile.watchPlan, ...updates } });
   }
 
+  // Confirm film watched: mark plan as watched + move item to seenItems in one save
+  function confirmWatched() {
+    if (!profile || !profile.watchPlan) return;
+    const { itemId } = profile.watchPlan;
+    const meta = profile.itemMetaStore[itemId];
+    const updated = { ...profile };
+    updated.watchPlan = { ...updated.watchPlan!, status: 'watched', watchedAt: new Date().toISOString() };
+    // Move from wantToWatch → seenItems
+    updated.wantToWatchItems = updated.wantToWatchItems.filter(id => id !== itemId);
+    updated.seenItems = [...updated.seenItems.filter(id => id !== itemId), itemId];
+    if (meta) updated.itemMetaStore = { ...updated.itemMetaStore, [itemId]: meta };
+    save(updated);
+  }
+
+  // Confirm abandoned: mark plan as abandoned + track in abandonedItems in one save
+  function confirmAbandoned() {
+    if (!profile || !profile.watchPlan) return;
+    const { itemId } = profile.watchPlan;
+    const updated = { ...profile };
+    updated.watchPlan = { ...updated.watchPlan!, status: 'abandoned' };
+    if (!updated.abandonedItems.includes(itemId)) {
+      updated.abandonedItems = [...updated.abandonedItems, itemId];
+    }
+    save(updated);
+  }
+
   // Calibration semantics:
   //   liked    = seen + loved  → likedItems + seenItems, shown in history ❤️
   //   disliked = not my style  → dislikedItems only (may not have watched, not in seenItems)
@@ -242,7 +270,9 @@ export function useUserProfile() {
     updatePreferences,
     planWatch,
     updateWatchPlan,
-    recordAction,   // (itemId, action, meta?) — meta persists posterUrl
+    confirmWatched,
+    confirmAbandoned,
+    recordAction,
     undoAction,
     addSatisfaction,
     recordRecommendedHistory,

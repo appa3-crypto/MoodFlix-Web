@@ -64,6 +64,8 @@ export default function App() {
     batchCalibration,
     planWatch,
     updateWatchPlan,
+    confirmWatched,
+    confirmAbandoned,
   } = useUserProfile();
 
   const freemium = useFreemium();
@@ -98,6 +100,12 @@ export default function App() {
 
   // ── CORE SEARCH ENGINE ──
   async function triggerSearch(currentChoices: UserChoices) {
+    if (!freemium.canUse('searches')) {
+      setPaywallFeature('Recherches illimitées');
+      setShowPaywall(true);
+      return;
+    }
+    freemium.consume('searches');
     setIsQuickMode(false);
     setExcludedIds([]);
     setIsSearching(true);
@@ -257,6 +265,12 @@ export default function App() {
   }
 
   function handleQuickVibe(vibe: QuickVibe) {
+    if (!freemium.canUse('searches')) {
+      setPaywallFeature('Recherches illimitées');
+      setShowPaywall(true);
+      return;
+    }
+    freemium.consume('searches');
     setLastQuickVibe(vibe);
     const tops = getQuickRecommendations(ALL_ITEMS, quickType, vibe, profile, 3, []);
     setResults(tops);
@@ -319,16 +333,14 @@ export default function App() {
 
   // ── WATCH REMINDER ──
   function handleWatched() {
-    updateWatchPlan({ status: 'watched', watchedAt: new Date().toISOString() } as Partial<WatchPlan>);
+    confirmWatched();
   }
   function handleNotYet() {
-    // Snooze: push notify time by 1 hour
     if (!profile?.watchPlan) return;
-    const snooze = new Date(Date.now() + 60 * 60_000).toISOString();
-    updateWatchPlan({ notifyAt: snooze } as Partial<WatchPlan>);
+    updateWatchPlan({ notifyAt: new Date(Date.now() + 60 * 60_000).toISOString() });
   }
   function handleAbandoned() {
-    updateWatchPlan({ status: 'abandoned' } as Partial<WatchPlan>);
+    confirmAbandoned();
   }
 
   // ── PAYWALL ──
@@ -455,8 +467,11 @@ export default function App() {
                 ⚡ Mode rapide — 2 questions
               </button>
               <div className="home-row-btns">
-                <button className="btn-home-sm" onClick={() => setShowCouple(true)}>
-                  💑 Mode couple
+                <button className="btn-home-sm" onClick={() => {
+                  if (!freemium.isPremium) { handleNeedPremium('Mode couple'); return; }
+                  setShowCouple(true);
+                }}>
+                  💑 Mode couple{!freemium.isPremium ? ' 🔒' : ''}
                 </button>
                 {interactionCount < 5 && (
                   <button className="btn-home-sm" onClick={() => setShowCalibration(true)}>

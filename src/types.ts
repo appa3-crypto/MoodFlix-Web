@@ -71,6 +71,7 @@ export interface UserProfile {
   seenItems: number[];
   dislikedItems: number[];
   tooLongItems: number[];
+  abandonedItems: number[];
   likedItems: number[];
   frequentMoods: Partial<Record<Mood, number>>;
   satisfactionLog: SatisfactionEntry[];
@@ -92,6 +93,7 @@ export interface WatchPlan {
   duration?:  number;   // minutes
   plannedAt:  string;   // ISO — when user clicked OK
   notifyAt?:  string;   // ISO — plannedAt + duration + 30min
+  watchedAt?: string;   // ISO — when user confirmed watching
   status:     WatchStatus;
   source:     'choose_for_me' | 'ca_me_tente';
 }

@@ -96,9 +96,12 @@ export function ProfilePage({ profile, onReset, onUpdatePreferences, onCalibrate
         )}
       </div>
 
-      {/* Stats — seenItems filtered to recommendation-only (calibration items start at 9001) */}
+      {/* Stats */}
       {(() => {
-        const recSeen = profile.seenItems.filter(id => id < 9001);
+        const recSeen   = profile.seenItems.filter(id => id < 9001);
+        const satLog    = profile.satisfactionLog;
+        const positives = satLog.filter(e => e.rating === 'loved' || e.rating === 'good').length;
+        const satRate   = satLog.length >= 3 ? Math.round(positives / satLog.length * 100) : null;
         return (
           <div className="profile-stats">
             <div className="stat-card stat-like">
@@ -114,8 +117,17 @@ export function ProfilePage({ profile, onReset, onUpdatePreferences, onCalibrate
               <span className="stat-label">Déjà vus</span>
             </div>
             <div className="stat-card stat-rating">
-              <span className="stat-number">{profile.satisfactionLog.length}</span>
-              <span className="stat-label">Avis donnés</span>
+              {satRate !== null ? (
+                <>
+                  <span className="stat-number">{satRate}%</span>
+                  <span className="stat-label">Satisfaction</span>
+                </>
+              ) : (
+                <>
+                  <span className="stat-number">{satLog.length}</span>
+                  <span className="stat-label">Avis donnés</span>
+                </>
+              )}
             </div>
           </div>
         );
