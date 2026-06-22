@@ -21,7 +21,8 @@ export type AnalyticsEvent =
   | 'reminder_snoozed'
   | 'reminder_abandoned'
   | 'history_viewed'
-  | 'profile_viewed';
+  | 'profile_viewed'
+  | 'premium_clicked';
 
 export type TrackPayload = Record<string, string | number | boolean | null | undefined>;
 

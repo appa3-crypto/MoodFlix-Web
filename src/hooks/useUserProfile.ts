@@ -10,10 +10,21 @@ import type {
   ItemMeta,
   CalibResult,
   WatchPlan,
+  AppSettings,
 } from '../types';
 
 const STORAGE_KEY = 'moodflix_profile_v2';
 const MAX_HISTORY = 60;
+
+const DEFAULT_SETTINGS: AppSettings = {
+  notifications: {
+    watchReminder:    true,
+    dailySuggestions: false,
+    newFeatures:      true,
+    personalTips:     true,
+  },
+  preferredPlatforms: [],
+};
 
 function defaultProfile(pseudo: string, platforms: Platform[]): UserProfile {
   return {
@@ -33,24 +44,21 @@ function defaultProfile(pseudo: string, platforms: Platform[]): UserProfile {
     createdAt: new Date().toISOString(),
     itemMetaStore: {},
     watchPlan: null,
+    settings: { ...DEFAULT_SETTINGS, preferredPlatforms: platforms },
   };
 }
 
-// Calibration item IDs start at 9001
 const CALIB_ID_MIN = 9001;
 
-// Migrate older profiles that lack new fields
 function migrate(raw: Partial<UserProfile> & Record<string, unknown>): UserProfile {
-  const liked      = new Set((raw.likedItems as number[] | undefined) ?? []);
+  const liked       = new Set((raw.likedItems as number[] | undefined) ?? []);
   const wantToWatch = (raw.wantToWatchItems as number[] | undefined) ?? [];
   const seenItems   = (raw.seenItems as number[] | undefined) ?? [];
 
   return {
     ...defaultProfile(raw.pseudo ?? 'Anonyme', raw.preferredPlatforms ?? []),
     ...raw,
-    // Remove calibration items wrongly added to wantToWatch by old code
     wantToWatchItems: wantToWatch.filter(id => id < CALIB_ID_MIN),
-    // Remove calibration-skip items from seenItems (only keep liked calibration items)
     seenItems: seenItems.filter(id => id < CALIB_ID_MIN || liked.has(id)),
     recommendedHistory: (raw.recommendedHistory as RecommendationHistoryEntry[] | undefined) ?? [],
     preferredType: (raw.preferredType as ContentType | undefined) ?? 'both',
@@ -58,6 +66,14 @@ function migrate(raw: Partial<UserProfile> & Record<string, unknown>): UserProfi
     itemMetaStore: (raw.itemMetaStore as Record<number, ItemMeta> | undefined) ?? {},
     watchPlan: (raw.watchPlan as WatchPlan | null | undefined) ?? null,
     abandonedItems: (raw.abandonedItems as number[] | undefined) ?? [],
+    settings: {
+      ...DEFAULT_SETTINGS,
+      ...(raw.settings as AppSettings | undefined),
+      notifications: {
+        ...DEFAULT_SETTINGS.notifications,
+        ...((raw.settings as AppSettings | undefined)?.notifications),
+      },
+    },
   } as UserProfile;
 }
 
@@ -80,7 +96,11 @@ export function useUserProfile() {
 
   function save(p: UserProfile) {
     setProfile(p);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(p));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(p));
+    } catch {
+      // ignore storage errors (quota exceeded etc.)
+    }
   }
 
   function createProfile(pseudo: string, platforms: Platform[]) {
@@ -88,8 +108,18 @@ export function useUserProfile() {
   }
 
   function resetProfile() {
-    localStorage.removeItem(STORAGE_KEY);
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
     setProfile(null);
+  }
+
+  function updatePseudo(pseudo: string) {
+    if (!profile) return;
+    save({ ...profile, pseudo: pseudo.trim().slice(0, 20) || profile.pseudo });
+  }
+
+  function updateSettings(settings: AppSettings) {
+    if (!profile) return;
+    save({ ...profile, settings });
   }
 
   function recordMood(mood: Mood) {
@@ -118,17 +148,21 @@ export function useUserProfile() {
     const updated = { ...profile };
 
     updated.wantToWatchItems = updated.wantToWatchItems.filter(id => id !== itemId);
-    updated.seenItems = updated.seenItems.filter(id => id !== itemId);
-    updated.dislikedItems = updated.dislikedItems.filter(id => id !== itemId);
-    updated.tooLongItems = updated.tooLongItems.filter(id => id !== itemId);
+    updated.seenItems        = updated.seenItems.filter(id => id !== itemId);
+    updated.dislikedItems    = updated.dislikedItems.filter(id => id !== itemId);
+    updated.tooLongItems     = updated.tooLongItems.filter(id => id !== itemId);
 
-    if (action === 'like') updated.wantToWatchItems = [...updated.wantToWatchItems, itemId];
-    if (action === 'seen') updated.seenItems = [...updated.seenItems, itemId];
-    if (action === 'dislike') updated.dislikedItems = [...updated.dislikedItems, itemId];
-    if (action === 'too-long') updated.tooLongItems = [...updated.tooLongItems, itemId];
+    const metaWithDate: ItemMeta | undefined = meta
+      ? { ...meta, addedAt: meta.addedAt ?? new Date().toISOString() }
+      : undefined;
 
-    if (meta) {
-      updated.itemMetaStore = { ...updated.itemMetaStore, [itemId]: meta };
+    if (action === 'like')     updated.wantToWatchItems = [...updated.wantToWatchItems, itemId];
+    if (action === 'seen')     updated.seenItems        = [...updated.seenItems, itemId];
+    if (action === 'dislike')  updated.dislikedItems    = [...updated.dislikedItems, itemId];
+    if (action === 'too-long') updated.tooLongItems     = [...updated.tooLongItems, itemId];
+
+    if (metaWithDate) {
+      updated.itemMetaStore = { ...updated.itemMetaStore, [itemId]: metaWithDate };
     }
 
     save(updated);
@@ -139,10 +173,40 @@ export function useUserProfile() {
     save({
       ...profile,
       wantToWatchItems: profile.wantToWatchItems.filter(id => id !== itemId),
-      seenItems: profile.seenItems.filter(id => id !== itemId),
-      dislikedItems: profile.dislikedItems.filter(id => id !== itemId),
-      tooLongItems: profile.tooLongItems.filter(id => id !== itemId),
+      seenItems:        profile.seenItems.filter(id => id !== itemId),
+      dislikedItems:    profile.dislikedItems.filter(id => id !== itemId),
+      tooLongItems:     profile.tooLongItems.filter(id => id !== itemId),
     });
+  }
+
+  // Move an item from wantToWatch → seenItems (used from history detail sheet)
+  function moveToSeen(itemId: number) {
+    if (!profile) return;
+    const updated = { ...profile };
+    updated.wantToWatchItems = updated.wantToWatchItems.filter(id => id !== itemId);
+    if (!updated.seenItems.includes(itemId)) {
+      updated.seenItems = [...updated.seenItems, itemId];
+    }
+    const meta = updated.itemMetaStore[itemId];
+    if (meta) {
+      updated.itemMetaStore = {
+        ...updated.itemMetaStore,
+        [itemId]: { ...meta, addedAt: meta.addedAt ?? new Date().toISOString() },
+      };
+    }
+    save(updated);
+  }
+
+  // Remove an item from a specific list
+  function removeFromList(itemId: number, list: 'want' | 'liked' | 'seen' | 'disliked' | 'abandoned') {
+    if (!profile) return;
+    const updated = { ...profile };
+    if (list === 'want')      updated.wantToWatchItems = updated.wantToWatchItems.filter(id => id !== itemId);
+    if (list === 'liked')     updated.likedItems       = updated.likedItems.filter(id => id !== itemId);
+    if (list === 'seen')      updated.seenItems        = updated.seenItems.filter(id => id !== itemId);
+    if (list === 'disliked')  updated.dislikedItems    = updated.dislikedItems.filter(id => id !== itemId);
+    if (list === 'abandoned') updated.abandonedItems   = (updated.abandonedItems ?? []).filter(id => id !== itemId);
+    save(updated);
   }
 
   function addSatisfaction(entry: SatisfactionEntry) {
@@ -179,21 +243,18 @@ export function useUserProfile() {
     save({ ...profile, watchPlan: { ...profile.watchPlan, ...updates } });
   }
 
-  // Confirm film watched: mark plan as watched + move item to seenItems in one save
   function confirmWatched() {
     if (!profile || !profile.watchPlan) return;
     const { itemId } = profile.watchPlan;
     const meta = profile.itemMetaStore[itemId];
     const updated = { ...profile };
     updated.watchPlan = { ...updated.watchPlan!, status: 'watched', watchedAt: new Date().toISOString() };
-    // Move from wantToWatch → seenItems
     updated.wantToWatchItems = updated.wantToWatchItems.filter(id => id !== itemId);
     updated.seenItems = [...updated.seenItems.filter(id => id !== itemId), itemId];
     if (meta) updated.itemMetaStore = { ...updated.itemMetaStore, [itemId]: meta };
     save(updated);
   }
 
-  // Confirm abandoned: mark plan as abandoned + track in abandonedItems in one save
   function confirmAbandoned() {
     if (!profile || !profile.watchPlan) return;
     const { itemId } = profile.watchPlan;
@@ -205,10 +266,6 @@ export function useUserProfile() {
     save(updated);
   }
 
-  // Calibration semantics:
-  //   liked    = seen + loved  → likedItems + seenItems, shown in history ❤️
-  //   disliked = not my style  → dislikedItems only (may not have watched, not in seenItems)
-  //   seen     = jamais vu     → nothing recorded, item stays available for discovery recs
   function batchCalibration(ratings: CalibResult[]) {
     if (!profile) return;
     let updated = { ...profile };
@@ -218,13 +275,11 @@ export function useUserProfile() {
     for (const r of ratings) {
       const { itemId, title, action } = r;
 
-      // Clean from all lists first (idempotent)
       updated.wantToWatchItems = updated.wantToWatchItems.filter(id => id !== itemId);
       updated.seenItems        = updated.seenItems.filter(id => id !== itemId);
       updated.dislikedItems    = updated.dislikedItems.filter(id => id !== itemId);
       updated.likedItems       = updated.likedItems.filter(id => id !== itemId);
 
-      // Persist snapshot for HistoryPage poster display
       metaStore[itemId] = {
         title: r.title,
         type: r.type,
@@ -232,6 +287,7 @@ export function useUserProfile() {
         posterEmoji: r.posterEmoji,
         posterColor: r.posterColor,
         tmdbId: r.tmdbId,
+        addedAt: new Date().toISOString(),
       };
 
       if (action === 'liked') {
@@ -244,10 +300,8 @@ export function useUserProfile() {
         ];
         historyEntries.push({ itemId, title, date: new Date().toISOString(), mood: null });
       } else if (action === 'disliked') {
-        // Style preference only — NOT in seenItems, they may not have watched it
         updated.dislikedItems = [...updated.dislikedItems, itemId];
       }
-      // action === 'seen' (jamais vu) → no list recorded, stays available for discovery
     }
 
     if (historyEntries.length > 0) {
@@ -265,6 +319,8 @@ export function useUserProfile() {
     isLoading,
     createProfile,
     resetProfile,
+    updatePseudo,
+    updateSettings,
     recordMood,
     recordPreferences,
     updatePreferences,
@@ -274,6 +330,8 @@ export function useUserProfile() {
     confirmAbandoned,
     recordAction,
     undoAction,
+    moveToSeen,
+    removeFromList,
     addSatisfaction,
     recordRecommendedHistory,
     batchCalibration,

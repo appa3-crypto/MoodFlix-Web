@@ -19,6 +19,8 @@ import { ProgressBar } from './components/ProgressBar';
 import { ProfileSetup } from './components/ProfileSetup';
 import { ProfilePage } from './components/ProfilePage';
 import { HistoryPage } from './components/HistoryPage';
+import { PremiumPage } from './components/PremiumPage';
+import { SettingsPage } from './components/SettingsPage';
 import { Navigation } from './components/Navigation';
 import { CalibrationModal } from './components/CalibrationModal';
 import { ChooseForMeModal } from './components/ChooseForMeModal';
@@ -68,6 +70,10 @@ export default function App() {
     updateWatchPlan,
     confirmWatched,
     confirmAbandoned,
+    updatePseudo,
+    updateSettings,
+    moveToSeen,
+    removeFromList,
   } = useUserProfile();
 
   const freemium = useFreemium();
@@ -390,15 +396,22 @@ export default function App() {
 
   // ── CARD ACTIONS ──
   function handleAction(itemId: number, action: 'like' | 'seen' | 'dislike' | 'too-long') {
-    // Find the item in current results to persist its posterUrl snapshot
     const item = [...results, ...(hiddenGem ? [hiddenGem] : [])].find(r => r.id === itemId);
     recordAction(itemId, action, item ? {
-      title: item.title,
-      type: item.type,
-      posterUrl: item.posterUrl,
-      posterEmoji: item.posterEmoji,
-      posterColor: item.posterColor,
-      tmdbId: item.tmdbId,
+      title:        item.title,
+      type:         item.type,
+      posterUrl:    item.posterUrl,
+      posterEmoji:  item.posterEmoji,
+      posterColor:  item.posterColor,
+      tmdbId:       item.tmdbId,
+      overview:     item.overview,
+      atmosphere:   item.atmosphere,
+      shortReason:  item.shortReason,
+      tags:         item.tags,
+      platforms:    item.availableOn ?? item.platforms,
+      duration:     item.duration,
+      seasons:      item.seasons,
+      addedAt:      new Date().toISOString(),
     } : undefined);
   }
   function handleUndo(itemId: number) { undoAction(itemId); }
@@ -424,7 +437,7 @@ export default function App() {
   const isQuickFlow = step === 'quick-type' || step === 'quick-vibe';
   const showHeader  = isMainFlow || isQuickFlow;
   const showProgress = isMainFlow;
-  const showNav     = !!profile && step !== 'home';
+  const showNav     = !!profile && step !== 'home' && step !== 'settings';
 
   // How many interactions the user has had — used to decide calibration prompt
   const interactionCount = profile
@@ -693,15 +706,48 @@ export default function App() {
         {step === 'profile' && (
           <ProfilePage
             profile={profile}
+            allItems={ALL_ITEMS}
+            isPremium={freemium.isPremium}
             onReset={resetProfile}
             onUpdatePreferences={updatePreferences}
+            onUpdatePseudo={updatePseudo}
             onCalibrate={() => setShowCalibration(true)}
+            onGoToPremium={() => goTo('premium')}
+            onGoToSettings={() => goTo('settings')}
           />
         )}
 
         {/* ── HISTORY ── */}
         {step === 'history' && (
-          <HistoryPage profile={profile} allItems={ALL_ITEMS} />
+          <HistoryPage
+            profile={profile}
+            allItems={ALL_ITEMS}
+            onMoveToSeen={moveToSeen}
+            onRemoveFromList={removeFromList}
+            onRate={(id, rating) => addSatisfaction({ itemId: id, rating, reasons: [], date: new Date().toISOString() })}
+          />
+        )}
+
+        {/* ── PREMIUM ── */}
+        {step === 'premium' && (
+          <PremiumPage
+            isPremium={freemium.isPremium}
+            onActivate={handleActivatePremium}
+            onClose={() => goTo('home')}
+          />
+        )}
+
+        {/* ── SETTINGS ── */}
+        {step === 'settings' && (
+          <SettingsPage
+            profile={profile}
+            onUpdateSettings={updateSettings}
+            onUpdatePrefs={p => updatePreferences(profile.preferredType, profile.preferredDuration, p)}
+            onUpdatePseudo={updatePseudo}
+            onReset={resetProfile}
+            onGoToPremium={() => goTo('premium')}
+            onBack={() => goTo('profile')}
+          />
         )}
       </main>
 
@@ -709,6 +755,7 @@ export default function App() {
         <Navigation
           currentStep={step}
           pseudo={profile.pseudo}
+          isPremium={freemium.isPremium}
           onNavigate={goTo}
         />
       )}
@@ -718,6 +765,7 @@ export default function App() {
         <CalibrationModal
           onComplete={handleCalibrationComplete}
           onDismiss={() => setShowCalibration(false)}
+          excludeIds={profile ? [...profile.seenItems, ...profile.dislikedItems] : []}
         />
       )}
 

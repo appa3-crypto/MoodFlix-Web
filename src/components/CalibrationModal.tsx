@@ -36,7 +36,26 @@ async function fetchPosterUrl(tmdbId: number, isTV: boolean): Promise<string | n
   }
 }
 
-export function CalibrationModal({ onComplete, onDismiss }: Props) {
+interface Props {
+  onComplete:  (results: CalibResult[]) => void;
+  onDismiss:   () => void;
+  excludeIds?: number[];
+}
+
+function buildDeck(excludeIds: number[]): CalibItem[] {
+  const excludeSet = new Set(excludeIds);
+  const available  = ITEMS.filter(i => !excludeSet.has(i.id));
+  // Fisher-Yates shuffle
+  const shuffled = [...available];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled.slice(0, Math.min(shuffled.length, 12));
+}
+
+export function CalibrationModal({ onComplete, onDismiss, excludeIds = [] }: Props) {
+  const [deck, setDeck] = useState<CalibItem[]>(() => buildDeck(excludeIds));
   const [index, setIndex] = useState(0);
   const [dragX, setDragX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -47,12 +66,21 @@ export function CalibrationModal({ onComplete, onDismiss }: Props) {
   const [posterUrls, setPosterUrls] = useState<Record<number, string>>({});
   const fetchedIds = useRef(new Set<number>());
 
-  const item = ITEMS[index];
-  const nextItem = ITEMS[index + 1];
+  const item     = deck[index];
+  const nextItem = deck[index + 1];
+
+  function reshuffleDeck() {
+    const allExcluded = [...excludeIds, ...results.map(r => r.itemId)];
+    setDeck(buildDeck(allExcluded));
+    setIndex(0);
+    setResults([]);
+    setPosterUrls({});
+    fetchedIds.current = new Set();
+  }
 
   // Preload poster for current card and next card
   useEffect(() => {
-    const toFetch = [ITEMS[index], ITEMS[index + 1]].filter(Boolean);
+    const toFetch = [deck[index], deck[index + 1]].filter(Boolean);
     for (const it of toFetch) {
       if (!fetchedIds.current.has(it.id)) {
         fetchedIds.current.add(it.id);
@@ -101,7 +129,7 @@ export function CalibrationModal({ onComplete, onDismiss }: Props) {
       setExiting(null);
       setDragX(0);
       setResults(newResults);
-      if (index + 1 >= ITEMS.length) {
+      if (index + 1 >= deck.length) {
         onComplete(newResults);
       } else {
         setIndex(i => i + 1);
@@ -113,7 +141,7 @@ export function CalibrationModal({ onComplete, onDismiss }: Props) {
     hideTutorial();
     const newResults = [...results, makeResult('seen')];
     setResults(newResults);
-    if (index + 1 >= ITEMS.length) {
+    if (index + 1 >= deck.length) {
       onComplete(newResults);
     } else {
       setIndex(i => i + 1);
@@ -155,7 +183,7 @@ export function CalibrationModal({ onComplete, onDismiss }: Props) {
     commitSwipe();
   }
 
-  const progress = (index / ITEMS.length) * 100;
+  const progress = (index / deck.length) * 100;
 
   const cardStyle: React.CSSProperties = exiting
     ? {}
@@ -178,7 +206,15 @@ export function CalibrationModal({ onComplete, onDismiss }: Props) {
           <p className="calib-sub">Dis-nous ce que tu as déjà vu</p>
         </div>
         <div className="calib-header-right">
-          <span className="calib-counter">{index + 1} / {ITEMS.length}</span>
+          <span className="calib-counter">{index + 1} / {deck.length}</span>
+          <button
+            className="calib-reshuffle"
+            onClick={reshuffleDeck}
+            title="Nouvelle calibration"
+            aria-label="Générer une nouvelle calibration"
+          >
+            🎲
+          </button>
           <button className="calib-close" onClick={onDismiss}>✕</button>
         </div>
       </div>

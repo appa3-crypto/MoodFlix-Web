@@ -1,7 +1,10 @@
 export type Mood = 'mind-bending' | 'scared' | 'laugh' | 'moved' | 'escape' | 'surprised';
 export type ContentType = 'movie' | 'series' | 'both';
 export type Duration = 'under-90' | 'two-hours' | 'evening' | 'several-days';
-export type Platform = 'Netflix' | 'Prime Video' | 'Disney+' | 'Canal+' | 'any';
+export type Platform =
+  | 'Netflix' | 'Prime Video' | 'Disney+' | 'Canal+'
+  | 'Apple TV+' | 'Max' | 'Paramount+' | 'Crunchyroll'
+  | 'any';
 export type QuickVibe = 'light' | 'intense' | 'surprising';
 export type SatisfactionRating = 'loved' | 'good' | 'ok' | 'disappointed' | 'bad';
 
@@ -35,7 +38,6 @@ export interface Recommendation {
   posterEmoji: string;
   posterUrl?: string;
   backdropUrl?: string;
-  // V3 — TMDB enrichment fields
   tmdbId?: number;
   overview?: string;
   voteAverage?: number;
@@ -62,6 +64,18 @@ export interface RecommendationHistoryEntry {
   mood: string | null;
 }
 
+export interface NotificationPrefs {
+  watchReminder: boolean;
+  dailySuggestions: boolean;
+  newFeatures: boolean;
+  personalTips: boolean;
+}
+
+export interface AppSettings {
+  notifications: NotificationPrefs;
+  preferredPlatforms: Platform[];
+}
+
 export interface UserProfile {
   pseudo: string;
   preferredPlatforms: Platform[];
@@ -79,9 +93,9 @@ export interface UserProfile {
   createdAt: string;
   itemMetaStore: Record<number, ItemMeta>;
   watchPlan: WatchPlan | null;
+  settings?: AppSettings;
 }
 
-// Watch plan — created when user validates "OK je regarde"
 export type WatchStatus = 'planned' | 'watched' | 'abandoned';
 
 export interface WatchPlan {
@@ -90,15 +104,14 @@ export interface WatchPlan {
   posterUrl?: string;
   posterEmoji: string;
   posterColor: string;
-  duration?:  number;   // minutes
-  plannedAt:  string;   // ISO — when user clicked OK
-  notifyAt?:  string;   // ISO — plannedAt + duration + 30min
-  watchedAt?: string;   // ISO — when user confirmed watching
+  duration?:  number;
+  plannedAt:  string;
+  notifyAt?:  string;
+  watchedAt?: string;
   status:     WatchStatus;
   source:     'choose_for_me' | 'ca_me_tente';
 }
 
-// Couple mode — person 2 quick prefs
 export interface CouplePrefs {
   name:     string;
   moods:    Mood[];
@@ -106,7 +119,6 @@ export interface CouplePrefs {
   type:     ContentType;
 }
 
-// Calibration result passed from CalibrationModal → App → batchCalibration
 export interface CalibResult {
   itemId: number;
   title: string;
@@ -118,7 +130,8 @@ export interface CalibResult {
   tmdbId?: number;
 }
 
-// Minimal item snapshot persisted alongside each profile action
+// Minimal snapshot persisted alongside each profile action
+// Extended fields are optional for backward compatibility
 export interface ItemMeta {
   title: string;
   type: 'movie' | 'series';
@@ -126,9 +139,16 @@ export interface ItemMeta {
   posterEmoji: string;
   posterColor: string;
   tmdbId?: number;
+  overview?: string;
+  atmosphere?: string;
+  shortReason?: string;
+  tags?: string[];
+  platforms?: string[];
+  duration?: number;
+  seasons?: number;
+  addedAt?: string;
 }
 
-// V4 — IA explicative
 export interface AIExplanation {
   explanation: string;
   reasons:     string[];
@@ -137,7 +157,6 @@ export interface AIExplanation {
   isLocal?:    boolean;
 }
 
-// V4 — Profil spectateur
 export type SpectatorArchetype =
   | 'mystery-explorer'
   | 'thrill-seeker'
@@ -163,5 +182,7 @@ export type Step =
   | 'results'
   | 'profile'
   | 'history'
+  | 'premium'
+  | 'settings'
   | 'quick-type'
   | 'quick-vibe';
