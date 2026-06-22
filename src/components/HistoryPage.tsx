@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type { UserProfile, Recommendation } from '../types';
 import { getPosterByTmdbId } from '../services/tmdbService';
+import { PosterImage } from './PosterImage';
 
 interface Props {
   profile: UserProfile;
@@ -108,22 +109,16 @@ export function HistoryPage({ profile, allItems }: Props) {
 
                 return (
                   <div key={id} className="history-cell">
-                    <div
-                      className="history-poster-wrap"
-                      style={{ background: item.posterColor }}
-                    >
-                      {posterUrl ? (
-                        <img
-                          src={posterUrl}
-                          alt={item.title}
-                          className="history-poster-img"
-                          onError={e => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                          }}
-                        />
-                      ) : (
-                        <span className="history-poster-fallback">{item.posterEmoji}</span>
-                      )}
+                    <div className="history-poster-wrap">
+                      <PosterImage
+                        src={posterUrl}
+                        alt={item.title}
+                        emoji={item.posterEmoji}
+                        color={item.posterColor}
+                        className="history-poster-fill"
+                        objectFit="cover"
+                        objectPosition="center top"
+                      />
                       <span className="history-type-badge">
                         {item.type === 'movie' ? '🎬' : '📺'}
                       </span>

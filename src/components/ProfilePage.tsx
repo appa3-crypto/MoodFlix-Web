@@ -308,7 +308,9 @@ export function ProfilePage({ profile, onReset, onUpdatePreferences, onCalibrate
             {profile.satisfactionLog.slice(-4).reverse().map(entry => (
               <div key={entry.itemId} className="profile-rating-row">
                 <span className="profile-rating-emoji">{RATING_EMOJIS[entry.rating]}</span>
-                <span className="profile-rating-id">#{entry.itemId}</span>
+                <span className="profile-rating-title">
+                  {profile.itemMetaStore?.[entry.itemId]?.title ?? `Film #${entry.itemId}`}
+                </span>
                 <span className="profile-rating-date">
                   {new Date(entry.date).toLocaleDateString('fr-FR')}
                 </span>

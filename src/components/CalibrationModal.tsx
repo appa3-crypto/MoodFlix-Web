@@ -92,6 +92,8 @@ export function CalibrationModal({ onComplete, onDismiss }: Props) {
     hideTutorial();
     setIsDragging(false);
     setExiting(dir);
+    if (dir === 'right') navigator.vibrate?.(20);
+    else navigator.vibrate?.([10, 10]);
     const action: CalibResult['action'] = dir === 'right' ? 'liked' : 'disliked';
     const newResults = [...results, makeResult(action)];
 
@@ -217,8 +219,7 @@ export function CalibrationModal({ onComplete, onDismiss }: Props) {
           {posterUrls[item.id]
             ? <img src={posterUrls[item.id]} className="calib-poster" alt={item.title} draggable={false} />
             : <div className="calib-poster-fallback" style={{ background: item.posterColor }}>
-                <span className="calib-poster-emoji">{item.posterEmoji}</span>
-                <p className="calib-poster-loading">Chargement…</p>
+                <span className={`calib-poster-emoji ${TMDB_KEY ? 'calib-poster-loading' : ''}`}>{item.posterEmoji}</span>
               </div>
           }
 

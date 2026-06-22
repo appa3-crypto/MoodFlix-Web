@@ -30,6 +30,7 @@ import { useUserProfile } from './hooks/useUserProfile';
 import { useFreemium } from './hooks/useFreemium';
 import { getTopRecommendations, getQuickRecommendations, getHiddenGem } from './utils/recommendationEngine';
 import { discoverContent, enrichItem } from './services/tmdbService';
+import { track } from './utils/analytics';
 import type { ScoredRecommendation, CalibResult, WatchPlan } from './types';
 import rawData from './data/recommendations.json';
 import calibrationData from './data/calibration.json';
@@ -111,6 +112,7 @@ export default function App() {
       return;
     }
     freemium.consume('searches');
+    track('search_started', { mood: currentChoices.mood ?? undefined, type: currentChoices.type ?? undefined });
     setIsQuickMode(false);
     setExcludedIds([]);
     setIsSearching(true);
@@ -276,6 +278,7 @@ export default function App() {
       return;
     }
     freemium.consume('searches');
+    track('quick_mode_used', { vibe, type: quickType });
     setLastQuickVibe(vibe);
     const tops = getQuickRecommendations(ALL_ITEMS, quickType, vibe, profile, 3, []);
     setResults(tops);
@@ -292,7 +295,10 @@ export default function App() {
 
   // ── CALIBRATION ──
   function handleCalibrationComplete(ratings: CalibResult[]) {
-    if (ratings.length > 0) batchCalibration(ratings);
+    if (ratings.length > 0) {
+      batchCalibration(ratings);
+      track('calibration_completed', { count: ratings.length });
+    }
     setShowCalibration(false);
   }
 
@@ -318,6 +324,7 @@ export default function App() {
       return;
     }
     freemium.consume('chooseForMe');
+    track('choose_for_me_used', { hasResults: results.length > 0 });
 
     // Build pool: use search results if available, otherwise generate from full catalog
     let pool: ScoredRecommendation[];
@@ -372,11 +379,13 @@ export default function App() {
   function handleNeedPremium(feature: string) {
     setPaywallFeature(feature);
     setShowPaywall(true);
+    track('paywall_opened', { feature });
   }
 
   function handleActivatePremium() {
     freemium.activatePremium();
     setShowPaywall(false);
+    track('premium_activated');
   }
 
   // ── CARD ACTIONS ──
@@ -439,6 +448,7 @@ export default function App() {
         <div className="app">
           <OnboardingScreen onComplete={() => {
             try { localStorage.setItem('moodflix_onboarding_done', 'true'); } catch {}
+            track('onboarding_completed');
             setOnboardingDone(true);
           }} />
         </div>

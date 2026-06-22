@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { ScoredRecommendation, SatisfactionRating, UserProfile, Mood, AIExplanation } from '../types';
 import { SatisfactionModal } from './SatisfactionModal';
 import { getAIExplanation } from '../services/aiExplanationService';
 import { computeCompatibility, compatibilityLabel } from '../utils/semanticMatching';
+import { track } from '../utils/analytics';
 
 interface Props {
   item:          ScoredRecommendation;
@@ -48,9 +49,22 @@ export function RecommendationCard({ item, rank, profile, mood, onAction, onUndo
 
   useEffect(() => { setHeroFailed(false); }, [item.id, item.backdropUrl, item.posterUrl]);
 
-  const compat              = computeCompatibility(item, profile, mood);
-  const compatLabel         = compatibilityLabel(compat.total);
-  const existingSatisfaction= profile?.satisfactionLog.find(e => e.itemId === item.id);
+  // Track when this card is first shown
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { track('recommendation_viewed', { itemId: item.id, rank }); }, [item.id]);
+
+  const compat = useMemo(
+    () => computeCompatibility(item, profile, mood),
+    // Recompute when item changes or after profile actions (likedItems/frequentMoods)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [item.id, profile?.likedItems.length, profile?.frequentMoods, mood],
+  );
+  const compatLabel         = useMemo(() => compatibilityLabel(compat.total), [compat.total]);
+  const existingSatisfaction = useMemo(
+    () => profile?.satisfactionLog.find(e => e.itemId === item.id),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [profile?.satisfactionLog.length, item.id],
+  );
 
   // Pick best available hero image: backdrop > poster
   const heroSrc = !heroFailed
@@ -67,25 +81,39 @@ export function RecommendationCard({ item, rank, profile, mood, onAction, onUndo
     setReaction(next);
     if (next) {
       onAction(item.id, next);
-      if (next === 'like')     showFeedback('Ajouté à ton profil ✨');
-      if (next === 'dislike')  showFeedback("On évitera ce style 👌");
-      if (next === 'too-long') showFeedback('On évitera les contenus trop longs ⏱️');
-      if (next === 'seen')     showFeedback('Noté ! 👁️');
+      if (next === 'like') {
+        showFeedback('Ajouté à ta liste ✨');
+        track('recommendation_liked', { itemId: item.id, title: item.title });
+      }
+      if (next === 'dislike') {
+        showFeedback("Pas ton style — c'est noté 👌");
+        track('recommendation_disliked', { itemId: item.id });
+      }
+      if (next === 'too-long') showFeedback('On privilégiera les contenus courts ⏱️');
+      if (next === 'seen')     showFeedback('Déjà noté dans ton historique 👁️');
     } else {
       onUndo(item.id);
     }
   }
 
   async function handleWhyForMe() {
-    if (explanation) {
-      setShowExplanation(s => !s);
-      return;
-    }
+    if (explanation) { setShowExplanation(s => !s); return; }
     setLoadingExplanation(true);
     setShowExplanation(true);
-    const result = await getAIExplanation(item, profile, mood);
-    setExplanation(result);
-    setLoadingExplanation(false);
+    try {
+      const result = await getAIExplanation(item, profile, mood);
+      setExplanation(result);
+    } catch {
+      setExplanation({
+        explanation: "L'analyse n'est pas disponible pour le moment.",
+        reasons: ['Réessaie dans un instant.'],
+        riskLevel: '',
+        confidence: 0,
+        isLocal: true,
+      });
+    } finally {
+      setLoadingExplanation(false);
+    }
   }
 
   function handleSatisfactionComplete(rating: SatisfactionRating, reasons: string[]) {
@@ -148,28 +176,32 @@ export function RecommendationCard({ item, rank, profile, mood, onAction, onUndo
 
         {/* Top row: rank + badges */}
         <div className="card-hero-top">
-          <div className="card-rank">#{rank}</div>
+          {rank > 0 && <div className="card-rank">#{rank}</div>}
           <div className="card-hero-badges">
             {item.isDiscovery && <span className="discovery-badge">🔍 Découverte</span>}
             <span className="card-type-badge">
               {item.type === 'movie' ? '🎬 Film' : '📺 Série'}
             </span>
-            {compat.total >= 65 && profile && (
-              <span className="compat-badge">{compat.total}%</span>
-            )}
           </div>
         </div>
 
-        {/* Bottom: title + meta */}
+        {/* Bottom: title + compat + meta */}
         <div className="card-hero-info">
           <h3 className="card-title">{item.title}</h3>
+          {compat.total >= 60 && profile && (
+            <div className="card-compat-row" role="note" aria-label={`Compatibilité ${compat.total}%`}>
+              🔥 Compatibilité {compat.total}%
+            </div>
+          )}
           <div className="card-tags-row">
             {item.availableOn && item.availableOn.length > 0 ? (
-              item.availableOn.map(p => (
+              item.availableOn.slice(0, 2).map(p => (
                 <span key={p} className="card-tag card-tag-platform card-tag-live">{p}</span>
               ))
             ) : (
-              <span className="card-tag card-tag-platform">{item.platforms[0]}</span>
+              item.platforms.slice(0, 2).map(p => (
+                <span key={p} className="card-tag card-tag-platform">{p}</span>
+              ))
             )}
             <span className="card-tag card-tag-duration">{durationLabel}</span>
             {item.voteAverage && item.voteAverage > 0 && (
