@@ -77,6 +77,31 @@ export interface UserProfile {
   recommendedHistory: RecommendationHistoryEntry[];
   createdAt: string;
   itemMetaStore: Record<number, ItemMeta>;
+  watchPlan: WatchPlan | null;
+}
+
+// Watch plan — created when user validates "OK je regarde"
+export type WatchStatus = 'planned' | 'watched' | 'abandoned';
+
+export interface WatchPlan {
+  itemId:     number;
+  title:      string;
+  posterUrl?: string;
+  posterEmoji: string;
+  posterColor: string;
+  duration?:  number;   // minutes
+  plannedAt:  string;   // ISO — when user clicked OK
+  notifyAt?:  string;   // ISO — plannedAt + duration + 30min
+  status:     WatchStatus;
+  source:     'choose_for_me' | 'ca_me_tente';
+}
+
+// Couple mode — person 2 quick prefs
+export interface CouplePrefs {
+  name:     string;
+  moods:    Mood[];
+  duration: Duration | null;
+  type:     ContentType;
 }
 
 // Calibration result passed from CalibrationModal → App → batchCalibration

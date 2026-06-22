@@ -9,6 +9,7 @@ import type {
   RecommendationHistoryEntry,
   ItemMeta,
   CalibResult,
+  WatchPlan,
 } from '../types';
 
 const STORAGE_KEY = 'moodflix_profile_v2';
@@ -30,6 +31,7 @@ function defaultProfile(pseudo: string, platforms: Platform[]): UserProfile {
     recommendedHistory: [],
     createdAt: new Date().toISOString(),
     itemMetaStore: {},
+    watchPlan: null,
   };
 }
 
@@ -53,6 +55,7 @@ function migrate(raw: Partial<UserProfile> & Record<string, unknown>): UserProfi
     preferredType: (raw.preferredType as ContentType | undefined) ?? 'both',
     preferredDuration: (raw.preferredDuration as Duration | null | undefined) ?? null,
     itemMetaStore: (raw.itemMetaStore as Record<number, ItemMeta> | undefined) ?? {},
+    watchPlan: (raw.watchPlan as WatchPlan | null | undefined) ?? null,
   } as UserProfile;
 }
 
@@ -164,6 +167,16 @@ export function useUserProfile() {
     });
   }
 
+  function planWatch(plan: WatchPlan) {
+    if (!profile) return;
+    save({ ...profile, watchPlan: plan });
+  }
+
+  function updateWatchPlan(updates: Partial<WatchPlan>) {
+    if (!profile || !profile.watchPlan) return;
+    save({ ...profile, watchPlan: { ...profile.watchPlan, ...updates } });
+  }
+
   // Calibration semantics:
   //   liked    = seen + loved  → likedItems + seenItems, shown in history ❤️
   //   disliked = not my style  → dislikedItems only (may not have watched, not in seenItems)
@@ -227,6 +240,8 @@ export function useUserProfile() {
     recordMood,
     recordPreferences,
     updatePreferences,
+    planWatch,
+    updateWatchPlan,
     recordAction,   // (itemId, action, meta?) — meta persists posterUrl
     undoAction,
     addSatisfaction,

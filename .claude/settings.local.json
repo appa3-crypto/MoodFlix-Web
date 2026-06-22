@@ -8,7 +8,8 @@
       "PowerShell($key = \"abef44271670178942ee3d247b0d2cbc\"; $r = Invoke-WebRequest -Uri \"https://api.themoviedb.org/3/movie/550?api_key=$key\" -UseBasicParsing -ErrorAction SilentlyContinue; $r.StatusCode)",
       "PowerShell($git = \"C:\\\\Users\\\\appa3\\\\AppData\\\\Local\\\\GitHubDesktop\\\\app-3.5.12\\\\resources\\\\app\\\\git\\\\cmd\\\\git.exe\"; Set-Location \"c:\\\\Users\\\\appa3\\\\Desktop\\\\MoodFlix\"; & $git status 2>&1)",
       "PowerShell($git = \"C:\\\\Users\\\\appa3\\\\AppData\\\\Local\\\\GitHubDesktop\\\\app-3.5.12\\\\resources\\\\app\\\\git\\\\cmd\\\\git.exe\"; Set-Location \"c:\\\\Users\\\\appa3\\\\Desktop\\\\MoodFlix\"; & $git add package.json; & $git commit -m \"Fix Vercel vite build permission denied\"; & $git push origin main 2>&1)",
-      "PowerShell($git = \"C:\\\\Users\\\\appa3\\\\AppData\\\\Local\\\\GitHubDesktop\\\\app-3.5.12\\\\resources\\\\app\\\\git\\\\cmd\\\\git.exe\"; Set-Location \"c:\\\\Users\\\\appa3\\\\Desktop\\\\MoodFlix\"; & $git add src/components/RecommendationCard.tsx; & $git commit -m \"Fix poster fallback to emoji when image fails to load\"; & $git push origin main 2>&1)"
+      "PowerShell($git = \"C:\\\\Users\\\\appa3\\\\AppData\\\\Local\\\\GitHubDesktop\\\\app-3.5.12\\\\resources\\\\app\\\\git\\\\cmd\\\\git.exe\"; Set-Location \"c:\\\\Users\\\\appa3\\\\Desktop\\\\MoodFlix\"; & $git add src/components/RecommendationCard.tsx; & $git commit -m \"Fix poster fallback to emoji when image fails to load\"; & $git push origin main 2>&1)",
+      "PowerShell(\\(Get-Content \"c:\\\\Users\\\\appa3\\\\Desktop\\\\MoodFlix\\\\src\\\\index.css\" | Measure-Object -Line\\).Lines)"
     ],
     "additionalDirectories": [
       "c:\\Users\\appa3\\.claude\\projects\\c--Users-appa3-Desktop-MoodFlix\\memory"

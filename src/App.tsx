@@ -21,10 +21,15 @@ import { ProfilePage } from './components/ProfilePage';
 import { HistoryPage } from './components/HistoryPage';
 import { Navigation } from './components/Navigation';
 import { CalibrationModal } from './components/CalibrationModal';
+import { ChooseForMeModal } from './components/ChooseForMeModal';
+import { WatchReminderBanner } from './components/WatchReminderBanner';
+import { CoupleModeSetup } from './components/CoupleModeSetup';
+import { PaywallModal } from './components/PaywallModal';
 import { useUserProfile } from './hooks/useUserProfile';
+import { useFreemium } from './hooks/useFreemium';
 import { getTopRecommendations, getQuickRecommendations, getHiddenGem } from './utils/recommendationEngine';
 import { discoverContent, enrichItem } from './services/tmdbService';
-import type { ScoredRecommendation, CalibResult } from './types';
+import type { ScoredRecommendation, CalibResult, WatchPlan } from './types';
 import rawData from './data/recommendations.json';
 import calibrationData from './data/calibration.json';
 
@@ -57,7 +62,11 @@ export default function App() {
     addSatisfaction,
     recordRecommendedHistory,
     batchCalibration,
+    planWatch,
+    updateWatchPlan,
   } = useUserProfile();
+
+  const freemium = useFreemium();
 
   const [step, setStep] = useState<Step>('home');
   const [choices, setChoices] = useState<UserChoices>(INITIAL_CHOICES);
@@ -73,7 +82,11 @@ export default function App() {
   const [tmdbPool, setTmdbPool] = useState<Recommendation[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hiddenGem, setHiddenGem] = useState<ScoredRecommendation | null>(null);
-  const [showCalibration, setShowCalibration] = useState(false);
+  const [showCalibration,  setShowCalibration]  = useState(false);
+  const [showChooseForMe,  setShowChooseForMe]  = useState(false);
+  const [showCouple,       setShowCouple]       = useState(false);
+  const [showPaywall,      setShowPaywall]      = useState(false);
+  const [paywallFeature,   setPaywallFeature]   = useState('');
 
   const goTo = useCallback((next: Step) => {
     setAnimating(true);
@@ -279,6 +292,56 @@ export default function App() {
     goTo('home');
   }
 
+  // ── CHOISIS POUR MOI ──
+  function handleChooseForMe() {
+    if (!freemium.canUse('chooseForMe')) {
+      setPaywallFeature('Choisis pour moi illimité');
+      setShowPaywall(true);
+      return;
+    }
+    freemium.consume('chooseForMe');
+    setShowChooseForMe(true);
+  }
+
+  function handleChooseConfirm(plan: WatchPlan) {
+    planWatch(plan);
+    setShowChooseForMe(false);
+    // Also record as "like" in profile
+    const item = [...results, ...(hiddenGem ? [hiddenGem] : [])].find(r => r.id === plan.itemId);
+    if (item) {
+      recordAction(plan.itemId, 'like', {
+        title: item.title, type: item.type,
+        posterUrl: item.posterUrl, posterEmoji: item.posterEmoji,
+        posterColor: item.posterColor, tmdbId: item.tmdbId,
+      });
+    }
+  }
+
+  // ── WATCH REMINDER ──
+  function handleWatched() {
+    updateWatchPlan({ status: 'watched', watchedAt: new Date().toISOString() } as Partial<WatchPlan>);
+  }
+  function handleNotYet() {
+    // Snooze: push notify time by 1 hour
+    if (!profile?.watchPlan) return;
+    const snooze = new Date(Date.now() + 60 * 60_000).toISOString();
+    updateWatchPlan({ notifyAt: snooze } as Partial<WatchPlan>);
+  }
+  function handleAbandoned() {
+    updateWatchPlan({ status: 'abandoned' } as Partial<WatchPlan>);
+  }
+
+  // ── PAYWALL ──
+  function handleNeedPremium(feature: string) {
+    setPaywallFeature(feature);
+    setShowPaywall(true);
+  }
+
+  function handleActivatePremium() {
+    freemium.activatePremium();
+    setShowPaywall(false);
+  }
+
   // ── CARD ACTIONS ──
   function handleAction(itemId: number, action: 'like' | 'seen' | 'dislike' | 'too-long') {
     // Find the item in current results to persist its posterUrl snapshot
@@ -372,20 +435,38 @@ export default function App() {
                 <span className="headline-accent">qu'est-ce qu'on regarde ce soir ?</span>
               </h1>
               <p className="home-sub">
-                3 recommandations ciblées en 30 secondes,
-                <br />
-                personnalisées selon ton profil.
+                Arrête de scroller. Trouve quoi regarder en 30 secondes.
               </p>
+
+              {/* Watch reminder banner (shows after planned watch time) */}
+              {profile.watchPlan && profile.watchPlan.status === 'planned' && (
+                <WatchReminderBanner
+                  plan={profile.watchPlan}
+                  onWatched={handleWatched}
+                  onNotYet={handleNotYet}
+                  onAbandoned={handleAbandoned}
+                />
+              )}
+
               <button className="btn-start" onClick={startNormalSearch}>
-                Je sais ce que je veux →
+                🎬 Trouver quoi regarder →
               </button>
-              <button className="btn-start btn-start-ghost" onClick={startQuickMode}>
-                🎲 Je sais pas
+              <button className="btn-start btn-start-secondary" onClick={startQuickMode}>
+                ⚡ Mode rapide — 2 questions
               </button>
-              {interactionCount < 5 && (
-                <button className="btn-calibrate" onClick={() => setShowCalibration(true)}>
-                  🎯 Calibrer mes goûts
+              <div className="home-row-btns">
+                <button className="btn-home-sm" onClick={() => setShowCouple(true)}>
+                  💑 Mode couple
                 </button>
+                {interactionCount < 5 && (
+                  <button className="btn-home-sm" onClick={() => setShowCalibration(true)}>
+                    🎯 Calibrer mes goûts
+                  </button>
+                )}
+              </div>
+
+              {freemium.isPremium && (
+                <div className="home-premium-badge">👑 Premium actif</div>
               )}
               <p className="home-disclaimer">Sans inscription · Sans pub · Données locales</p>
             </div>
@@ -492,6 +573,7 @@ export default function App() {
             onUndo={handleUndo}
             onSatisfaction={handleSatisfaction}
             onSuggestOther={handleSuggestOther}
+            onChooseForMe={handleChooseForMe}
           />
         )}
 
@@ -524,6 +606,35 @@ export default function App() {
         <CalibrationModal
           onComplete={handleCalibrationComplete}
           onDismiss={() => setShowCalibration(false)}
+        />
+      )}
+
+      {/* ── CHOISIS POUR MOI ── */}
+      {showChooseForMe && results.length > 0 && (
+        <ChooseForMeModal
+          items={[...results, ...(hiddenGem ? [hiddenGem] : [])]}
+          onConfirm={handleChooseConfirm}
+          onDismiss={() => setShowChooseForMe(false)}
+          canRelaunch={freemium.canUse('relaunches')}
+          onNeedPremium={() => handleNeedPremium('Relances illimitées')}
+        />
+      )}
+
+      {/* ── MODE COUPLE ── */}
+      {showCouple && (
+        <CoupleModeSetup
+          profile={profile}
+          allItems={ALL_ITEMS}
+          onDismiss={() => setShowCouple(false)}
+        />
+      )}
+
+      {/* ── PAYWALL ── */}
+      {showPaywall && (
+        <PaywallModal
+          feature={paywallFeature}
+          onClose={() => setShowPaywall(false)}
+          onActivate={handleActivatePremium}
         />
       )}
     </div>

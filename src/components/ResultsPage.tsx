@@ -12,7 +12,8 @@ interface Props {
   onAction:      (itemId: number, action: 'like' | 'seen' | 'dislike' | 'too-long') => void;
   onUndo:        (itemId: number) => void;
   onSatisfaction:(itemId: number, rating: SatisfactionRating, reasons: string[]) => void;
-  onSuggestOther:() => void;
+  onSuggestOther: () => void;
+  onChooseForMe?: () => void;
 }
 
 const MOOD_LABELS: Record<string, string> = {
@@ -36,6 +37,7 @@ export function ResultsPage({
   onUndo,
   onSatisfaction,
   onSuggestOther,
+  onChooseForMe,
 }: Props) {
   const mood: Mood | null = choices.mood;
   const moodLabel         = mood ? MOOD_LABELS[mood] : null;
@@ -129,6 +131,11 @@ export function ResultsPage({
       )}
 
       <div className="results-footer">
+        {hasResults && onChooseForMe && (
+          <button className="btn-choose-for-me" onClick={onChooseForMe}>
+            🎲 Choisis pour moi
+          </button>
+        )}
         {hasResults && (
           <button className="btn-suggest-other" onClick={onSuggestOther}>
             🔀 Me proposer autre chose
