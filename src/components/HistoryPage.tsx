@@ -7,45 +7,90 @@ interface Props {
   allItems: Recommendation[];
 }
 
-const CATEGORIES = [
-  { key: 'wantToWatchItems' as const, label: '❤️ Ça me tente',  accent: '#EC4899' },
-  { key: 'seenItems'        as const, label: '👁️ Déjà vus',     accent: '#8B5CF6' },
-  { key: 'dislikedItems'    as const, label: '🚫 Pas mon style', accent: '#6B7280' },
-  { key: 'tooLongItems'     as const, label: '⏱️ Trop long',     accent: '#F59E0B' },
+interface DisplayItem {
+  title: string;
+  type: 'movie' | 'series';
+  posterUrl?: string;
+  posterEmoji: string;
+  posterColor: string;
+  tmdbId?: number;
+}
+
+const SECTIONS = [
+  {
+    key: 'liked'   as const,
+    label: '❤️ Aimés',
+    sub: 'Vus et adorés',
+    accent: '#EC4899',
+  },
+  {
+    key: 'want'    as const,
+    label: '💾 À regarder',
+    sub: 'Ta liste de films',
+    accent: '#8B5CF6',
+  },
+  {
+    key: 'dislike' as const,
+    label: '🚫 Pas mon style',
+    sub: 'Pour affiner les recs',
+    accent: '#6B7280',
+  },
+  {
+    key: 'neutral' as const,
+    label: '👁️ Déjà vus',
+    sub: 'Sans avis fort',
+    accent: '#4B5563',
+  },
 ];
 
-const RATING_EMOJI: Record<string, string> = {
-  loved: '❤️', good: '👍', ok: '😐', disappointed: '😔', bad: '👎',
-};
-
 export function HistoryPage({ profile, allItems }: Props) {
-  const [posterCache, setPosterCache] = useState<Record<number, string>>({});
+  const [posterFetched, setPosterFetched] = useState<Record<number, string>>({});
   const fetchedIds = useRef(new Set<number>());
 
-  function getItem(id: number) {
-    return allItems.find(i => i.id === id);
-  }
-  function getSatisfaction(id: number) {
-    return profile.satisfactionLog.find(e => e.itemId === id);
+  // Compute section IDs — most recent first, no duplicates between sections
+  const likedSet    = new Set(profile.likedItems);
+  const dislikedSet = new Set(profile.dislikedItems);
+  const wantSet     = new Set(profile.wantToWatchItems);
+
+  // neutral = seenItems not already in liked / disliked / want
+  const neutralIds = profile.seenItems.filter(
+    id => !likedSet.has(id) && !dislikedSet.has(id) && !wantSet.has(id),
+  );
+
+  const sectionData: Record<string, number[]> = {
+    liked:   [...profile.likedItems].reverse(),
+    want:    [...profile.wantToWatchItems].reverse(),
+    dislike: [...profile.dislikedItems].reverse(),
+    neutral: [...neutralIds].reverse(),
+  };
+
+  // Resolve display data for an id: metaStore first, then allItems lookup
+  function resolve(id: number): DisplayItem | null {
+    const meta = profile.itemMetaStore?.[id];
+    if (meta) return meta;
+    const found = allItems.find(i => i.id === id);
+    if (found) return found;
+    return null;
   }
 
-  // Fetch TMDB posters for calibration items that have tmdbId but no posterUrl
+  // Lazy-fetch TMDB posters for items that have tmdbId but no stored posterUrl
   useEffect(() => {
-    const allIds = CATEGORIES.flatMap(c => profile[c.key]);
+    const allIds = Object.values(sectionData).flat();
     for (const id of allIds) {
-      const item = getItem(id);
-      if (!item || item.posterUrl || !item.tmdbId || fetchedIds.current.has(item.id)) continue;
-      fetchedIds.current.add(item.id);
+      if (fetchedIds.current.has(id)) continue;
+      const item = resolve(id);
+      if (!item || item.posterUrl || !item.tmdbId) continue;
+      fetchedIds.current.add(id);
       getPosterByTmdbId(item.tmdbId, item.type === 'series').then(url => {
-        if (url) setPosterCache(prev => ({ ...prev, [item.id]: url }));
+        if (url) setPosterFetched(prev => ({ ...prev, [id]: url }));
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const hasHistory = CATEGORIES.some(c => profile[c.key].length > 0);
+  const hasAny = Object.values(sectionData).some(ids => ids.length > 0);
 
-  if (!hasHistory) {
+  if (!hasAny) {
     return (
       <div className="page-container">
         <h1 className="page-title">Mon historique</h1>
@@ -54,7 +99,7 @@ export function HistoryPage({ profile, allItems }: Props) {
           <p className="history-empty-text">
             Ton historique est vide.
             <br />
-            Lance une recherche pour commencer !
+            Lance une recherche ou calibre tes goûts !
           </p>
         </div>
       </div>
@@ -65,25 +110,27 @@ export function HistoryPage({ profile, allItems }: Props) {
     <div className="page-container page-scroll">
       <h1 className="page-title">Mon historique</h1>
 
-      {CATEGORIES.map(({ key, label, accent }) => {
-        const ids = profile[key];
+      {SECTIONS.map(section => {
+        const ids = sectionData[section.key];
         if (ids.length === 0) return null;
-        // Most recent first
-        const sorted = [...ids].reverse();
 
         return (
-          <div key={key} className="history-section">
-            <h2 className="history-section-title" style={{ color: accent }}>
-              {label}
-              <span className="history-section-count">{ids.length}</span>
-            </h2>
+          <div key={section.key} className="history-section">
+            <div className="history-section-header">
+              <div>
+                <h2 className="history-section-title" style={{ color: section.accent }}>
+                  {section.label}
+                  <span className="history-section-count">{ids.length}</span>
+                </h2>
+                <p className="history-section-sub">{section.sub}</p>
+              </div>
+            </div>
 
             <div className="history-grid">
-              {sorted.map(id => {
-                const item = getItem(id);
+              {ids.map(id => {
+                const item = resolve(id);
                 if (!item) return null;
-                const satisfaction = getSatisfaction(id);
-                const posterUrl = item.posterUrl ?? posterCache[item.id] ?? null;
+                const posterUrl = item.posterUrl ?? posterFetched[id] ?? null;
 
                 return (
                   <div key={id} className="history-cell">
@@ -96,25 +143,17 @@ export function HistoryPage({ profile, allItems }: Props) {
                           src={posterUrl}
                           alt={item.title}
                           className="history-poster-img"
-                          onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          onError={e => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
                         />
                       ) : (
                         <span className="history-poster-fallback">{item.posterEmoji}</span>
                       )}
-
-                      {/* Rating badge */}
-                      {satisfaction && (
-                        <span className="history-rating-badge">
-                          {RATING_EMOJI[satisfaction.rating]}
-                        </span>
-                      )}
-
-                      {/* Type badge */}
                       <span className="history-type-badge">
                         {item.type === 'movie' ? '🎬' : '📺'}
                       </span>
                     </div>
-
                     <p className="history-poster-title">{item.title}</p>
                   </div>
                 );

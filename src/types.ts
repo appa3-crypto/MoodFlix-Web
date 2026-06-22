@@ -76,6 +76,29 @@ export interface UserProfile {
   satisfactionLog: SatisfactionEntry[];
   recommendedHistory: RecommendationHistoryEntry[];
   createdAt: string;
+  itemMetaStore: Record<number, ItemMeta>;
+}
+
+// Calibration result passed from CalibrationModal → App → batchCalibration
+export interface CalibResult {
+  itemId: number;
+  title: string;
+  type: 'movie' | 'series';
+  action: 'liked' | 'disliked' | 'seen';
+  posterUrl?: string;
+  posterEmoji: string;
+  posterColor: string;
+  tmdbId?: number;
+}
+
+// Minimal item snapshot persisted alongside each profile action
+export interface ItemMeta {
+  title: string;
+  type: 'movie' | 'series';
+  posterUrl?: string;
+  posterEmoji: string;
+  posterColor: string;
+  tmdbId?: number;
 }
 
 // V4 — IA explicative

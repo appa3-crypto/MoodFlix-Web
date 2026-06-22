@@ -7,6 +7,8 @@ import type {
   ContentType,
   Duration,
   RecommendationHistoryEntry,
+  ItemMeta,
+  CalibResult,
 } from '../types';
 
 const STORAGE_KEY = 'moodflix_profile_v2';
@@ -27,6 +29,7 @@ function defaultProfile(pseudo: string, platforms: Platform[]): UserProfile {
     satisfactionLog: [],
     recommendedHistory: [],
     createdAt: new Date().toISOString(),
+    itemMetaStore: {},
   };
 }
 
@@ -38,6 +41,7 @@ function migrate(raw: Partial<UserProfile> & Record<string, unknown>): UserProfi
     recommendedHistory: (raw.recommendedHistory as RecommendationHistoryEntry[] | undefined) ?? [],
     preferredType: (raw.preferredType as ContentType | undefined) ?? 'both',
     preferredDuration: (raw.preferredDuration as Duration | null | undefined) ?? null,
+    itemMetaStore: (raw.itemMetaStore as Record<number, ItemMeta> | undefined) ?? {},
   } as UserProfile;
 }
 
@@ -93,7 +97,7 @@ export function useUserProfile() {
     save({ ...profile, preferredType: type, preferredDuration: duration, preferredPlatforms: platforms });
   }
 
-  function recordAction(itemId: number, action: 'like' | 'seen' | 'dislike' | 'too-long') {
+  function recordAction(itemId: number, action: 'like' | 'seen' | 'dislike' | 'too-long', meta?: ItemMeta) {
     if (!profile) return;
     const updated = { ...profile };
 
@@ -106,6 +110,10 @@ export function useUserProfile() {
     if (action === 'seen') updated.seenItems = [...updated.seenItems, itemId];
     if (action === 'dislike') updated.dislikedItems = [...updated.dislikedItems, itemId];
     if (action === 'too-long') updated.tooLongItems = [...updated.tooLongItems, itemId];
+
+    if (meta) {
+      updated.itemMetaStore = { ...updated.itemMetaStore, [itemId]: meta };
+    }
 
     save(updated);
   }
@@ -145,26 +153,39 @@ export function useUserProfile() {
     });
   }
 
-  // Batch-save calibration ratings in a single write to avoid multiple re-renders
-  function batchCalibration(ratings: Array<{ itemId: number; title: string; action: 'liked' | 'disliked' | 'seen' }>) {
+  // Calibration semantics:
+  //   liked   = user has SEEN it and LOVED it → likedItems + seenItems (NOT wantToWatch)
+  //   disliked = not their style → dislikedItems + seenItems
+  //   seen    = seen it, neutral / "jamais vu" skip → seenItems only
+  function batchCalibration(ratings: CalibResult[]) {
     if (!profile) return;
     let updated = { ...profile };
+    const metaStore = { ...updated.itemMetaStore };
     const historyEntries: RecommendationHistoryEntry[] = [];
 
-    for (const { itemId, title, action } of ratings) {
-      // Remove from all lists first
+    for (const r of ratings) {
+      const { itemId, title, action } = r;
+
+      // Clean from all lists first (idempotent)
       updated.wantToWatchItems = updated.wantToWatchItems.filter(id => id !== itemId);
       updated.seenItems        = updated.seenItems.filter(id => id !== itemId);
       updated.dislikedItems    = updated.dislikedItems.filter(id => id !== itemId);
 
+      // Persist snapshot so HistoryPage can show poster without extra fetch
+      metaStore[itemId] = {
+        title: r.title,
+        type: r.type,
+        posterUrl: r.posterUrl,
+        posterEmoji: r.posterEmoji,
+        posterColor: r.posterColor,
+        tmdbId: r.tmdbId,
+      };
+
       if (action === 'liked') {
-        // Mark as seen (excluded from future recs) AND saved (for tag similarity)
-        updated.seenItems        = [...updated.seenItems, itemId];
-        updated.wantToWatchItems = [...updated.wantToWatchItems, itemId];
+        updated.seenItems = [...updated.seenItems, itemId];
         if (!updated.likedItems.includes(itemId)) {
           updated.likedItems = [...updated.likedItems, itemId];
         }
-        // Add to satisfaction log
         const existing = updated.satisfactionLog.filter(e => e.itemId !== itemId);
         updated.satisfactionLog = [
           ...existing,
@@ -172,22 +193,21 @@ export function useUserProfile() {
         ];
         historyEntries.push({ itemId, title, date: new Date().toISOString(), mood: null });
       } else if (action === 'disliked') {
-        // Mark as seen + disliked — won't be recommended again
         updated.seenItems     = [...updated.seenItems, itemId];
         updated.dislikedItems = [...updated.dislikedItems, itemId];
-      } else if (action === 'seen') {
-        // Already seen but neutral — mark as seen to avoid re-recommending
+      } else {
+        // 'seen' = jamais vu / neutral skip
         updated.seenItems = [...updated.seenItems, itemId];
       }
     }
 
-    // Add history entries so tag similarity lookup can find titles
     if (historyEntries.length > 0) {
       const newIds = new Set(historyEntries.map(e => e.itemId));
       const kept = updated.recommendedHistory.filter(e => !newIds.has(e.itemId));
       updated.recommendedHistory = [...kept, ...historyEntries].slice(-MAX_HISTORY);
     }
 
+    updated.itemMetaStore = metaStore;
     save(updated);
   }
 
@@ -199,7 +219,7 @@ export function useUserProfile() {
     recordMood,
     recordPreferences,
     updatePreferences,
-    recordAction,
+    recordAction,   // (itemId, action, meta?) — meta persists posterUrl
     undoAction,
     addSatisfaction,
     recordRecommendedHistory,

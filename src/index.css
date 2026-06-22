@@ -1805,17 +1805,27 @@ textarea {
 }
 
 .history-section {
-  margin-bottom: 28px;
+  margin-bottom: 32px;
+}
+
+.history-section-header {
+  margin-bottom: 12px;
 }
 
 .history-section-title {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
-  margin-bottom: 12px;
+  margin-bottom: 2px;
   letter-spacing: -0.2px;
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.history-section-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
 }
 
 .history-section-count {

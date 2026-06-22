@@ -1,13 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import calibrationRaw from '../data/calibration.json';
+import type { CalibResult } from '../types';
 
 export type CalibRating = 'liked' | 'disliked' | 'seen';
-
-export interface CalibResult {
-  itemId: number;
-  title: string;
-  action: 'liked' | 'disliked' | 'seen';
-}
 
 interface Props {
   onComplete: (results: CalibResult[]) => void;
@@ -80,12 +75,25 @@ export function CalibrationModal({ onComplete, onDismiss }: Props) {
     else setDragX(0);
   }
 
+  function makeResult(action: CalibResult['action']): CalibResult {
+    return {
+      itemId: item.id,
+      title: item.title,
+      type: item.type as 'movie' | 'series',
+      action,
+      posterUrl: posterUrls[item.id] ?? undefined,
+      posterEmoji: item.posterEmoji,
+      posterColor: item.posterColor,
+      tmdbId: item.tmdbId,
+    };
+  }
+
   function triggerSwipe(dir: 'left' | 'right') {
     hideTutorial();
     setIsDragging(false);
     setExiting(dir);
     const action: CalibResult['action'] = dir === 'right' ? 'liked' : 'disliked';
-    const newResults = [...results, { itemId: item.id, title: item.title, action }];
+    const newResults = [...results, makeResult(action)];
 
     setTimeout(() => {
       setExiting(null);
@@ -101,7 +109,7 @@ export function CalibrationModal({ onComplete, onDismiss }: Props) {
 
   function handleSkip() {
     hideTutorial();
-    const newResults = [...results, { itemId: item.id, title: item.title, action: 'seen' as const }];
+    const newResults = [...results, makeResult('seen')];
     setResults(newResults);
     if (index + 1 >= ITEMS.length) {
       onComplete(newResults);

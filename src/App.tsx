@@ -21,11 +21,10 @@ import { ProfilePage } from './components/ProfilePage';
 import { HistoryPage } from './components/HistoryPage';
 import { Navigation } from './components/Navigation';
 import { CalibrationModal } from './components/CalibrationModal';
-import type { CalibResult } from './components/CalibrationModal';
 import { useUserProfile } from './hooks/useUserProfile';
 import { getTopRecommendations, getQuickRecommendations, getHiddenGem } from './utils/recommendationEngine';
 import { discoverContent, enrichItem } from './services/tmdbService';
-import type { ScoredRecommendation } from './types';
+import type { ScoredRecommendation, CalibResult } from './types';
 import rawData from './data/recommendations.json';
 import calibrationData from './data/calibration.json';
 
@@ -282,7 +281,16 @@ export default function App() {
 
   // ── CARD ACTIONS ──
   function handleAction(itemId: number, action: 'like' | 'seen' | 'dislike' | 'too-long') {
-    recordAction(itemId, action);
+    // Find the item in current results to persist its posterUrl snapshot
+    const item = [...results, ...(hiddenGem ? [hiddenGem] : [])].find(r => r.id === itemId);
+    recordAction(itemId, action, item ? {
+      title: item.title,
+      type: item.type,
+      posterUrl: item.posterUrl,
+      posterEmoji: item.posterEmoji,
+      posterColor: item.posterColor,
+      tmdbId: item.tmdbId,
+    } : undefined);
   }
   function handleUndo(itemId: number) { undoAction(itemId); }
   function handleSatisfaction(itemId: number, rating: SatisfactionRating, reasons: string[]) {
