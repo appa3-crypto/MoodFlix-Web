@@ -96,25 +96,30 @@ export function ProfilePage({ profile, onReset, onUpdatePreferences, onCalibrate
         )}
       </div>
 
-      {/* Stats */}
-      <div className="profile-stats">
-        <div className="stat-card stat-like">
-          <span className="stat-number">{profile.wantToWatchItems.length}</span>
-          <span className="stat-label">Ça me tente</span>
-        </div>
-        <div className="stat-card stat-seen">
-          <span className="stat-number">{profile.seenItems.length}</span>
-          <span className="stat-label">Déjà vus</span>
-        </div>
-        <div className="stat-card stat-dislike">
-          <span className="stat-number">{profile.dislikedItems.length}</span>
-          <span className="stat-label">Pas mon style</span>
-        </div>
-        <div className="stat-card stat-rating">
-          <span className="stat-number">{profile.satisfactionLog.length}</span>
-          <span className="stat-label">Avis donnés</span>
-        </div>
-      </div>
+      {/* Stats — seenItems filtered to recommendation-only (calibration items start at 9001) */}
+      {(() => {
+        const recSeen = profile.seenItems.filter(id => id < 9001);
+        return (
+          <div className="profile-stats">
+            <div className="stat-card stat-like">
+              <span className="stat-number">{profile.likedItems.length}</span>
+              <span className="stat-label">Aimés</span>
+            </div>
+            <div className="stat-card stat-seen">
+              <span className="stat-number">{profile.wantToWatchItems.length}</span>
+              <span className="stat-label">À regarder</span>
+            </div>
+            <div className="stat-card stat-dislike">
+              <span className="stat-number">{recSeen.length}</span>
+              <span className="stat-label">Déjà vus</span>
+            </div>
+            <div className="stat-card stat-rating">
+              <span className="stat-number">{profile.satisfactionLog.length}</span>
+              <span className="stat-label">Avis donnés</span>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Preferences */}
       <div className="profile-section">
@@ -276,7 +281,7 @@ export function ProfilePage({ profile, onReset, onUpdatePreferences, onCalibrate
           <div className="profile-activity">
             <span className="activity-stat">{profile.recommendedHistory.length} contenus proposés</span>
             <span className="activity-sep">·</span>
-            <span className="activity-stat">{profile.seenItems.length} regardés</span>
+            <span className="activity-stat">{profile.seenItems.filter(id => id < 9001).length} regardés</span>
             <span className="activity-sep">·</span>
             <span className="activity-stat">{profile.satisfactionLog.length} avis</span>
           </div>

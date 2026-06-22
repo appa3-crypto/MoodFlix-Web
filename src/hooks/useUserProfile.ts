@@ -33,17 +33,22 @@ function defaultProfile(pseudo: string, platforms: Platform[]): UserProfile {
   };
 }
 
-// Calibration item IDs start at 9001 — clean old profiles that wrongly added them to wantToWatch
+// Calibration item IDs start at 9001
 const CALIB_ID_MIN = 9001;
 
 // Migrate older profiles that lack new fields
 function migrate(raw: Partial<UserProfile> & Record<string, unknown>): UserProfile {
+  const liked      = new Set((raw.likedItems as number[] | undefined) ?? []);
   const wantToWatch = (raw.wantToWatchItems as number[] | undefined) ?? [];
+  const seenItems   = (raw.seenItems as number[] | undefined) ?? [];
+
   return {
     ...defaultProfile(raw.pseudo ?? 'Anonyme', raw.preferredPlatforms ?? []),
     ...raw,
-    // Remove old calibration items that were incorrectly added to wantToWatchItems
+    // Remove calibration items wrongly added to wantToWatch by old code
     wantToWatchItems: wantToWatch.filter(id => id < CALIB_ID_MIN),
+    // Remove calibration-skip items from seenItems (only keep liked calibration items)
+    seenItems: seenItems.filter(id => id < CALIB_ID_MIN || liked.has(id)),
     recommendedHistory: (raw.recommendedHistory as RecommendationHistoryEntry[] | undefined) ?? [],
     preferredType: (raw.preferredType as ContentType | undefined) ?? 'both',
     preferredDuration: (raw.preferredDuration as Duration | null | undefined) ?? null,
