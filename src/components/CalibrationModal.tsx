@@ -24,7 +24,7 @@ interface CalibItem {
 }
 
 const ITEMS = calibrationRaw as CalibItem[];
-const TMDB_KEY = import.meta.env.VITE_TMDB_KEY as string | undefined;
+const TMDB_KEY = import.meta.env.VITE_TMDB_API_KEY as string | undefined;
 
 async function fetchPosterUrl(tmdbId: number, isTV: boolean): Promise<string | null> {
   if (!TMDB_KEY) return null;
