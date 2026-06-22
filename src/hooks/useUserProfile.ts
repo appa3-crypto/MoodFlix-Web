@@ -33,11 +33,17 @@ function defaultProfile(pseudo: string, platforms: Platform[]): UserProfile {
   };
 }
 
+// Calibration item IDs start at 9001 — clean old profiles that wrongly added them to wantToWatch
+const CALIB_ID_MIN = 9001;
+
 // Migrate older profiles that lack new fields
 function migrate(raw: Partial<UserProfile> & Record<string, unknown>): UserProfile {
+  const wantToWatch = (raw.wantToWatchItems as number[] | undefined) ?? [];
   return {
     ...defaultProfile(raw.pseudo ?? 'Anonyme', raw.preferredPlatforms ?? []),
     ...raw,
+    // Remove old calibration items that were incorrectly added to wantToWatchItems
+    wantToWatchItems: wantToWatch.filter(id => id < CALIB_ID_MIN),
     recommendedHistory: (raw.recommendedHistory as RecommendationHistoryEntry[] | undefined) ?? [],
     preferredType: (raw.preferredType as ContentType | undefined) ?? 'both',
     preferredDuration: (raw.preferredDuration as Duration | null | undefined) ?? null,
@@ -154,9 +160,9 @@ export function useUserProfile() {
   }
 
   // Calibration semantics:
-  //   liked   = user has SEEN it and LOVED it → likedItems + seenItems (NOT wantToWatch)
-  //   disliked = not their style → dislikedItems + seenItems
-  //   seen    = seen it, neutral / "jamais vu" skip → seenItems only
+  //   liked    = seen + loved  → likedItems + seenItems, shown in history ❤️
+  //   disliked = not my style  → dislikedItems only (may not have watched, not in seenItems)
+  //   seen     = jamais vu     → nothing recorded, item stays available for discovery recs
   function batchCalibration(ratings: CalibResult[]) {
     if (!profile) return;
     let updated = { ...profile };
@@ -170,8 +176,9 @@ export function useUserProfile() {
       updated.wantToWatchItems = updated.wantToWatchItems.filter(id => id !== itemId);
       updated.seenItems        = updated.seenItems.filter(id => id !== itemId);
       updated.dislikedItems    = updated.dislikedItems.filter(id => id !== itemId);
+      updated.likedItems       = updated.likedItems.filter(id => id !== itemId);
 
-      // Persist snapshot so HistoryPage can show poster without extra fetch
+      // Persist snapshot for HistoryPage poster display
       metaStore[itemId] = {
         title: r.title,
         type: r.type,
@@ -182,10 +189,8 @@ export function useUserProfile() {
       };
 
       if (action === 'liked') {
-        updated.seenItems = [...updated.seenItems, itemId];
-        if (!updated.likedItems.includes(itemId)) {
-          updated.likedItems = [...updated.likedItems, itemId];
-        }
+        updated.seenItems  = [...updated.seenItems, itemId];
+        updated.likedItems = [...updated.likedItems, itemId];
         const existing = updated.satisfactionLog.filter(e => e.itemId !== itemId);
         updated.satisfactionLog = [
           ...existing,
@@ -193,12 +198,10 @@ export function useUserProfile() {
         ];
         historyEntries.push({ itemId, title, date: new Date().toISOString(), mood: null });
       } else if (action === 'disliked') {
-        updated.seenItems     = [...updated.seenItems, itemId];
+        // Style preference only — NOT in seenItems, they may not have watched it
         updated.dislikedItems = [...updated.dislikedItems, itemId];
-      } else {
-        // 'seen' = jamais vu / neutral skip
-        updated.seenItems = [...updated.seenItems, itemId];
       }
+      // action === 'seen' (jamais vu) → no list recorded, stays available for discovery
     }
 
     if (historyEntries.length > 0) {

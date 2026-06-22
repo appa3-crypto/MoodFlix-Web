@@ -18,28 +18,16 @@ interface DisplayItem {
 
 const SECTIONS = [
   {
-    key: 'liked'   as const,
+    key: 'liked' as const,
     label: '❤️ Aimés',
     sub: 'Vus et adorés',
     accent: '#EC4899',
   },
   {
-    key: 'want'    as const,
+    key: 'want' as const,
     label: '💾 À regarder',
-    sub: 'Ta liste de films',
+    sub: 'Ta liste de films à voir',
     accent: '#8B5CF6',
-  },
-  {
-    key: 'dislike' as const,
-    label: '🚫 Pas mon style',
-    sub: 'Pour affiner les recs',
-    accent: '#6B7280',
-  },
-  {
-    key: 'neutral' as const,
-    label: '👁️ Déjà vus',
-    sub: 'Sans avis fort',
-    accent: '#4B5563',
   },
 ];
 
@@ -47,21 +35,9 @@ export function HistoryPage({ profile, allItems }: Props) {
   const [posterFetched, setPosterFetched] = useState<Record<number, string>>({});
   const fetchedIds = useRef(new Set<number>());
 
-  // Compute section IDs — most recent first, no duplicates between sections
-  const likedSet    = new Set(profile.likedItems);
-  const dislikedSet = new Set(profile.dislikedItems);
-  const wantSet     = new Set(profile.wantToWatchItems);
-
-  // neutral = seenItems not already in liked / disliked / want
-  const neutralIds = profile.seenItems.filter(
-    id => !likedSet.has(id) && !dislikedSet.has(id) && !wantSet.has(id),
-  );
-
   const sectionData: Record<string, number[]> = {
-    liked:   [...profile.likedItems].reverse(),
-    want:    [...profile.wantToWatchItems].reverse(),
-    dislike: [...profile.dislikedItems].reverse(),
-    neutral: [...neutralIds].reverse(),
+    liked: [...profile.likedItems].reverse(),
+    want:  [...profile.wantToWatchItems].reverse(),
   };
 
   // Resolve display data for an id: metaStore first, then allItems lookup
