@@ -5,6 +5,8 @@ import { getAIExplanation } from '../services/aiExplanationService';
 import { computeCompatibility, compatibilityLabel } from '../utils/semanticMatching';
 import { track } from '../utils/analytics';
 
+const IS_DEV = import.meta.env.DEV;
+
 interface Props {
   item:          ScoredRecommendation;
   rank:          number;
@@ -307,6 +309,16 @@ export function RecommendationCard({ item, rank, profile, mood, onAction, onUndo
           <button className="btn-rate btn-rate-done" onClick={() => setShowModal(true)}>
             ✓ Avis enregistré — modifier ?
           </button>
+        )}
+
+        {IS_DEV && (
+          <div className="debug-score-overlay">
+            <span className={`debug-mood-tag ${mood && item.moods.includes(mood) ? 'debug-mood-ok' : 'debug-mood-miss'}`}>
+              {mood && item.moods.includes(mood) ? `✓ humeur: ${mood}` : `✗ humeur: ${mood ?? '–'} (${item.moods.join('/')})`}
+            </span>
+            <span className="debug-score-tag">score: {item.score}</span>
+            <span className="debug-score-tag">😂{item.humorScore} 😱{item.fearScore} 🥺{item.emotionScore}</span>
+          </div>
         )}
       </div>
 

@@ -130,8 +130,29 @@ const DURATION_PARAMS: Record<string, Record<string, string>> = {
   'several-days': {},
 };
 
+// Genres TMDB à exclure pour éviter docs, émissions, téléréalité, talk-shows
+// 99 = documentaire, 10764 = reality, 10767 = talk-show, 10763 = news
+const EXCLUDED_GENRES_TV    = '99,10764,10767,10763';
+const EXCLUDED_GENRES_MOVIE = '99,10764,10767';
+
+// Seuils de qualité différenciés par mood
+// Les comédies ont structurellement moins de votes TMDB que les thrillers
+function qualityParams(mood: string): Record<string, string> {
+  if (mood === 'laugh') {
+    return { 'vote_count.gte': '200', 'vote_average.gte': '6.3' };
+  }
+  if (mood === 'escape') {
+    return { 'vote_count.gte': '300', 'vote_average.gte': '6.5' };
+  }
+  return { 'vote_count.gte': '300', 'vote_average.gte': '6.8' };
+}
+
+// Items max par type (film / série) — indépendants pour que "les deux" donne 30 résultats
+const MAX_PER_TYPE = 15;
+
 interface DiscoverResponse {
   results: TMDBDiscoveryItem[];
+  total_pages?: number;
 }
 
 export async function discoverContent(
@@ -140,21 +161,21 @@ export async function discoverContent(
 ): Promise<Recommendation[]> {
   if (!API_KEY || !choices.mood) return [];
 
-  // Use | (OR) not , (AND) — comma means ALL genres must match, pipe means at least one
-  const genreIds = MOOD_GENRE_IDS[choices.mood]?.join('|') ?? '';
+  const genreIds      = MOOD_GENRE_IDS[choices.mood]?.join('|') ?? '';
   const providerParam = buildWatchProviderParam(choices.platforms);
-  const excludedLower = excludedTitles.map(t => t.toLowerCase());
+  const excludedLower = new Set(excludedTitles.map(t => t.toLowerCase().trim()));
 
-  const results: Recommendation[] = [];
+  const allResults: Recommendation[] = [];
 
-  async function discover(mediaType: 'movie' | 'tv'): Promise<void> {
+  async function discover(mediaType: 'movie' | 'tv', page = 1): Promise<void> {
+    const typeItems: Recommendation[] = [];
+
     const params: Record<string, string> = {
-      with_genres:        genreIds,
-      sort_by:            'vote_average.desc',
-      'vote_count.gte':   '500',     // was 150 — ensures well-known content
-      'vote_average.gte': '7.0',     // was 6.5 — higher quality bar
-      // Exclude animation, reality TV, talk shows, documentaries
-      without_genres:     mediaType === 'tv' ? '16,10764,10767,99' : '16',
+      with_genres:    genreIds,
+      sort_by:        'popularity.desc',   // fraîcheur + popularité > vote_average seul
+      without_genres: mediaType === 'tv' ? EXCLUDED_GENRES_TV : EXCLUDED_GENRES_MOVIE,
+      page:           String(page),
+      ...qualityParams(choices.mood!),
     };
 
     if (mediaType === 'movie' && choices.duration && choices.duration !== 'several-days') {
@@ -169,19 +190,23 @@ export async function discoverContent(
     const data = await fetchTMDB<DiscoverResponse>(`/discover/${mediaType}`, params);
     if (!data?.results) return;
 
-    const type = mediaType === 'movie' ? 'movie' : 'series';
+    const type      = mediaType === 'movie' ? 'movie' : 'series';
+    const providers = providerParam ? choices.platforms.filter(p => p !== 'any') : [];
 
     for (const item of data.results) {
-      if (results.length >= 10) break;
-      const title = (item.title ?? item.name ?? '').toLowerCase();
-      if (excludedLower.includes(title)) continue;
+      if (typeItems.length >= MAX_PER_TYPE) break;
+      const title = (item.title ?? item.name ?? '').toLowerCase().trim();
+      if (excludedLower.has(title)) continue;
+      // Évite les doublons intra-résultats TMDB
+      if (allResults.some(r => r.id === item.id)) continue;
+      typeItems.push(mapTMDBToRecommendation(item, type, providers, choices));
+    }
 
-      // With with_watch_providers, the item IS on those platforms — set providers from user choices
-      const providers = providerParam
-        ? choices.platforms.filter(p => p !== 'any')
-        : [];
+    allResults.push(...typeItems);
 
-      results.push(mapTMDBToRecommendation(item, type, providers, choices));
+    // Si la page 1 ne remplit pas le quota et qu'une page 2 existe, on la récupère aussi
+    if (typeItems.length < MAX_PER_TYPE && page === 1 && (data.total_pages ?? 1) > 1) {
+      await discover(mediaType, 2);
     }
   }
 
@@ -190,8 +215,9 @@ export async function discoverContent(
   } else if (choices.type === 'movie') {
     await discover('movie');
   } else {
+    // Récupère films ET séries en parallèle — jusqu'à 30 items total
     await Promise.all([discover('movie'), discover('tv')]);
   }
 
-  return results;
+  return allResults;
 }

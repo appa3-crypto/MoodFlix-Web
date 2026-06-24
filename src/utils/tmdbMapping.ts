@@ -15,6 +15,10 @@ export const PLATFORM_PROVIDER_IDS: Record<string, number[]> = {
   'Prime Video':  [9, 119],
   'Disney+':      [337],
   'Canal+':       [34, 35],
+  'Apple TV+':    [350],
+  'Paramount+':   [531],
+  'Max':          [1899],
+  'Crunchyroll':  [283],
 };
 
 // Build the with_watch_providers param from user's platforms
