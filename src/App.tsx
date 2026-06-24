@@ -31,7 +31,7 @@ import { OnboardingScreen } from './components/OnboardingScreen';
 import { useUserProfile } from './hooks/useUserProfile';
 import { useFreemium } from './hooks/useFreemium';
 import { getTopRecommendations, getQuickRecommendations, getHiddenGem, reRankWithAI, inferChoicesFromProfile } from './utils/recommendationEngine';
-import { discoverContent, enrichItem } from './services/tmdbService';
+import { discoverContent, enrichItem, discoverForCalibration, discoverForCFM } from './services/tmdbService';
 import { track } from './utils/analytics';
 import type { ScoredRecommendation, CalibResult, WatchPlan } from './types';
 import rawData from './data/recommendations.json';
@@ -94,7 +94,9 @@ export default function App() {
   const [lastQuickVibe, setLastQuickVibe] = useState<QuickVibe>('surprising');
   const [tmdbPool, setTmdbPool] = useState<Recommendation[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [hiddenGem, setHiddenGem] = useState<ScoredRecommendation | null>(null);
+  const [hiddenGem,       setHiddenGem]       = useState<ScoredRecommendation | null>(null);
+  const [calibDeck,       setCalibDeck]       = useState<Recommendation[]>([]);
+  const [calibLoading,    setCalibLoading]    = useState(false);
   const [onboardingDone,   setOnboardingDone]   = useState<boolean>(() => {
     try { return localStorage.getItem('moodflix_onboarding_done') === 'true'; } catch { return false; }
   });
@@ -130,15 +132,21 @@ export default function App() {
     setResults([]);
     goTo('results');
 
-    const curatedTitles = ALL_ITEMS.map(i => i.title);
-    const tmdbItems = await discoverContent(currentChoices, curatedTitles);
+    // TMDB-first : interroger TMDB sans exclure le catalogue local (plus de résultats)
+    const tmdbItems = await discoverContent(currentChoices, []);
     setTmdbPool(tmdbItems);
 
-    const allItems = [...ALL_ITEMS, ...tmdbItems];
+    // Si TMDB retourne assez de résultats, c'est la source principale
+    // Sinon fallback sur le catalogue local
+    const primaryPool = tmdbItems.length >= 5
+      ? tmdbItems
+      : (() => {
+          if (import.meta.env.DEV) console.warn('⚠️ TMDB unavailable — local fallback used');
+          return ALL_ITEMS;
+        })();
 
-    // Récupère plus de candidats si l'IA est activée (elle re-choisit parmi les meilleurs)
     const candidateCount = AI_RANKING_ENABLED ? 8 : 3;
-    let tops = getTopRecommendations(allItems, currentChoices, profile, candidateCount, []);
+    let tops = getTopRecommendations(primaryPool, currentChoices, profile, candidateCount, []);
 
     // Affiche les 3 premiers résultats locaux immédiatement
     setResults(tops.slice(0, 3));
@@ -165,7 +173,7 @@ export default function App() {
     }
 
     const topIds = finalTop3.map(r => r.id);
-    const gem = getHiddenGem(allItems, currentChoices, profile, [...topIds]);
+    const gem = getHiddenGem(primaryPool, currentChoices, profile, [...topIds]);
     setHiddenGem(gem);
 
     // Enrichissement posters (async, ne bloque pas l'UI)
@@ -267,10 +275,11 @@ export default function App() {
     } else {
       const newExcluded = [...excludedIds, ...results.map(r => r.id)];
       setExcludedIds(newExcluded);
-      const allItems = [...ALL_ITEMS, ...tmdbPool];
 
+      // Réutilise le pool TMDB chargé lors de la recherche initiale
+      const scoringPool = tmdbPool.length >= 5 ? tmdbPool : ALL_ITEMS;
       const candidateCount = AI_RANKING_ENABLED ? 8 : 3;
-      let tops = getTopRecommendations(allItems, choices, profile, candidateCount, newExcluded);
+      let tops = getTopRecommendations(scoringPool, choices, profile, candidateCount, newExcluded);
       setResults(tops.slice(0, 3));
 
       if (AI_RANKING_ENABLED && tops.length >= 3) {
@@ -330,12 +339,31 @@ export default function App() {
   }
 
   // ── CALIBRATION ──
+  async function openCalibration() {
+    setShowCalibration(true);
+    setCalibLoading(true);
+    try {
+      const excludeSet = new Set<number>([
+        ...(profile?.seenItems ?? []),
+        ...(profile?.dislikedItems ?? []),
+      ]);
+      const deck = await discoverForCalibration(excludeSet);
+      // Si TMDB retourne au moins 5 items avec affiche, on les utilise
+      setCalibDeck(deck.length >= 5 ? deck : rawData as Recommendation[]);
+    } catch {
+      setCalibDeck(rawData as Recommendation[]);
+    } finally {
+      setCalibLoading(false);
+    }
+  }
+
   function handleCalibrationComplete(ratings: CalibResult[]) {
     if (ratings.length > 0) {
       batchCalibration(ratings);
       track('calibration_completed', { count: ratings.length });
     }
     setShowCalibration(false);
+    setCalibDeck([]);
   }
 
   // ── RESTART ──
@@ -382,12 +410,41 @@ export default function App() {
         ? inferChoicesFromProfile(profile)
         : { mood: null, type: null, duration: null, platforms: [], references: '', isAutoChoice: true as const };
 
-      // Plus de candidats si l'IA est activée (elle choisit parmi les meilleurs)
+      // IDs récemment suggérés (7 jours) — exclus du pool TMDB pour varier
+      const recentExcludeIds = new Set<number>([
+        ...(profile?.seenItems ?? []),
+        ...(profile?.dislikedItems ?? []),
+        ...(profile?.recommendedHistory ?? [])
+          .filter(e => (Date.now() - new Date(e.date).getTime()) / 86_400_000 < 7)
+          .map(e => e.itemId),
+      ]);
+
+      // Humeurs principales du profil pour orienter la requête TMDB
+      const topMoods: Mood[] = profile
+        ? (Object.entries(profile.frequentMoods) as [Mood, number][])
+            .sort(([, a], [, b]) => b - a)
+            .map(([m]) => m)
+            .slice(0, 3)
+        : ['escape' as Mood];
+
+      // TMDB-first : pool varié basé sur le profil
+      const cfmPool = await discoverForCFM(
+        topMoods.length > 0 ? topMoods : ['escape' as Mood],
+        implicitChoices.type ?? 'both',
+        implicitChoices.platforms,
+        recentExcludeIds,
+      );
+
+      if (import.meta.env.DEV && cfmPool.length < 5) {
+        console.warn('⚠️ TMDB CFM unavailable — local fallback used');
+      }
+
+      const scoringPool = cfmPool.length >= 5 ? cfmPool : ALL_ITEMS;
       const candidateCount = AI_RANKING_ENABLED ? 10 : 15;
-      let candidates = getTopRecommendations(ALL_ITEMS, implicitChoices, profile, candidateCount, []);
+      let candidates = getTopRecommendations(scoringPool, implicitChoices, profile, candidateCount, []);
 
       if (candidates.length === 0) {
-        candidates = (ALL_ITEMS as Recommendation[]).map(i => ({ ...i, score: 1, localRank: 1 }) as ScoredRecommendation);
+        candidates = (scoringPool as Recommendation[]).map(i => ({ ...i, score: 1, localRank: 1 }) as ScoredRecommendation);
       }
 
       // Re-ranking IA si activé
@@ -524,7 +581,7 @@ export default function App() {
     }
     function handleFirstProfile(pseudo: string, platforms: Platform[]) {
       createProfile(pseudo, platforms);
-      setShowCalibration(true);
+      openCalibration();
     }
     return (
       <div className="app">
@@ -645,8 +702,8 @@ export default function App() {
               </div>
 
               {interactionCount < 5 && (
-                <button className="btn-home-calibrate" onClick={() => setShowCalibration(true)}>
-                  🎯 Calibrer mes goûts pour de meilleures recommandations
+                <button className="btn-home-calibrate" onClick={openCalibration} disabled={calibLoading}>
+                  {calibLoading ? '⏳ Chargement des films…' : '🎯 Calibrer mes goûts pour de meilleures recommandations'}
                 </button>
               )}
 
@@ -769,7 +826,7 @@ export default function App() {
             onReset={resetProfile}
             onUpdatePreferences={updatePreferences}
             onUpdatePseudo={updatePseudo}
-            onCalibrate={() => setShowCalibration(true)}
+            onCalibrate={openCalibration}
             onGoToPremium={() => goTo('premium')}
             onGoToSettings={() => goTo('settings')}
           />
@@ -822,9 +879,10 @@ export default function App() {
       {showCalibration && (
         <CalibrationModal
           onComplete={handleCalibrationComplete}
-          onDismiss={() => setShowCalibration(false)}
+          onDismiss={() => { setShowCalibration(false); setCalibDeck([]); }}
           excludeIds={profile ? [...profile.seenItems, ...profile.dislikedItems] : []}
-          catalog={rawData as Recommendation[]}
+          catalog={calibDeck.length > 0 ? calibDeck : rawData as Recommendation[]}
+          isLoadingDeck={calibLoading}
         />
       )}
 

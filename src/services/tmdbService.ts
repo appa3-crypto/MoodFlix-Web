@@ -1,4 +1,4 @@
-import type { Recommendation, UserChoices } from '../types';
+import type { Recommendation, UserChoices, Mood, ContentType, Platform } from '../types';
 import {
   MOOD_GENRE_IDS,
   buildWatchProviderParam,
@@ -195,6 +195,8 @@ export async function discoverContent(
 
     for (const item of data.results) {
       if (typeItems.length >= MAX_PER_TYPE) break;
+      if (!item.poster_path) continue;        // affiche obligatoire
+      if (!item.overview?.trim()) continue;   // synopsis obligatoire
       const title = (item.title ?? item.name ?? '').toLowerCase().trim();
       if (excludedLower.has(title)) continue;
       // Évite les doublons intra-résultats TMDB
@@ -220,4 +222,132 @@ export async function discoverContent(
   }
 
   return allResults;
+}
+
+// ── CALIBRATION DISCOVERY ─────────────────────────────────────────────────────
+// Genres variés pour calibration — films et séries populaires avec affiche garantie
+
+const CALIB_GENRE_SETS: { genres: string; mediaType: 'movie' | 'tv' }[] = [
+  { genres: '35',       mediaType: 'movie' }, // Comédie
+  { genres: '27',       mediaType: 'movie' }, // Horreur
+  { genres: '18',       mediaType: 'movie' }, // Drame
+  { genres: '878',      mediaType: 'movie' }, // Science-fiction
+  { genres: '28',       mediaType: 'movie' }, // Action
+  { genres: '16',       mediaType: 'movie' }, // Animation
+  { genres: '10749',    mediaType: 'movie' }, // Romance
+  { genres: '80',       mediaType: 'movie' }, // Policier
+  { genres: '9648',     mediaType: 'movie' }, // Mystère
+  { genres: '12',       mediaType: 'movie' }, // Aventure
+  { genres: '18',       mediaType: 'tv'    }, // Drame série
+  { genres: '35',       mediaType: 'tv'    }, // Comédie série
+  { genres: '10765',    mediaType: 'tv'    }, // SF & Fantastique série
+  { genres: '80',       mediaType: 'tv'    }, // Policier série
+  { genres: '10759',    mediaType: 'tv'    }, // Action/Aventure série
+];
+
+export async function discoverForCalibration(excludeIds: Set<number>): Promise<Recommendation[]> {
+  if (!API_KEY) return [];
+
+  const results: Recommendation[] = [];
+  const seenIds = new Set<number>(excludeIds);
+
+  // 5 genre sets aléatoires pour varier à chaque ouverture de la calibration
+  const sets = [...CALIB_GENRE_SETS].sort(() => Math.random() - 0.5).slice(0, 5);
+
+  await Promise.all(sets.map(async ({ genres, mediaType }) => {
+    // Page aléatoire 1-5 pour éviter toujours les mêmes films populaires
+    const page = Math.floor(Math.random() * 5) + 1;
+    const data = await fetchTMDB<DiscoverResponse>(`/discover/${mediaType}`, {
+      with_genres:      genres,
+      sort_by:          'popularity.desc',
+      'vote_count.gte': '400',
+      'vote_average.gte': '6.0',
+      without_genres:   mediaType === 'tv' ? EXCLUDED_GENRES_TV : EXCLUDED_GENRES_MOVIE,
+      page:             String(page),
+    });
+    if (!data?.results) return;
+
+    const mType = mediaType === 'movie' ? 'movie' : 'series';
+    const minChoices: UserChoices = {
+      mood: null, type: mType, duration: null, platforms: [], references: '',
+    };
+
+    for (const item of data.results) {
+      if (!item.poster_path)      continue; // affiche obligatoire
+      if (!item.overview?.trim()) continue; // synopsis obligatoire
+      if (seenIds.has(item.id))   continue;
+      seenIds.add(item.id);
+      results.push(mapTMDBToRecommendation(item, mType, [], minChoices));
+    }
+  }));
+
+  // Mélanger et retourner jusqu'à 12 items (10 pour la deck + 2 de réserve)
+  return results.sort(() => Math.random() - 0.5).slice(0, 12);
+}
+
+// ── CFM DISCOVERY ─────────────────────────────────────────────────────────────
+// Pool TMDB pour "Choisis pour moi" — basé sur les humeurs du profil utilisateur
+
+export async function discoverForCFM(
+  moods: Mood[],
+  type: ContentType,
+  platforms: Platform[],
+  excludeIds: Set<number>,
+): Promise<Recommendation[]> {
+  if (!API_KEY || moods.length === 0) return [];
+
+  const providerParam = buildWatchProviderParam(platforms);
+  const results: Recommendation[] = [];
+  const seenIds = new Set<number>(excludeIds);
+
+  const mediaTypes: ('movie' | 'tv')[] =
+    type === 'movie'  ? ['movie'] :
+    type === 'series' ? ['tv']    :
+    ['movie', 'tv'];
+
+  const targetMoods = moods.slice(0, 2); // max 2 humeurs pour limiter les requêtes
+
+  await Promise.all(
+    targetMoods.flatMap(mood =>
+      mediaTypes.map(async (mediaType) => {
+        const genreIds = MOOD_GENRE_IDS[mood]?.join('|') ?? '';
+        if (!genreIds) return;
+
+        // Page aléatoire pour ne pas toujours proposer les mêmes
+        const page = Math.floor(Math.random() * 4) + 1;
+        const params: Record<string, string> = {
+          with_genres:      genreIds,
+          sort_by:          'popularity.desc',
+          'vote_count.gte': '200',
+          'vote_average.gte': '6.3',
+          without_genres:   mediaType === 'tv' ? EXCLUDED_GENRES_TV : EXCLUDED_GENRES_MOVIE,
+          page:             String(page),
+        };
+
+        if (providerParam) {
+          params.with_watch_providers = providerParam;
+          params.watch_region         = COUNTRY;
+        }
+
+        const data = await fetchTMDB<DiscoverResponse>(`/discover/${mediaType}`, params);
+        if (!data?.results) return;
+
+        const mType     = mediaType === 'movie' ? 'movie' : 'series';
+        const providers = providerParam ? platforms.filter(p => p !== 'any') : [];
+        const minChoices: UserChoices = {
+          mood, type: mType, duration: null, platforms, references: '',
+        };
+
+        for (const item of data.results) {
+          if (!item.poster_path)      continue;
+          if (!item.overview?.trim()) continue;
+          if (seenIds.has(item.id))   continue;
+          seenIds.add(item.id);
+          results.push(mapTMDBToRecommendation(item, mType, providers, minChoices));
+        }
+      })
+    )
+  );
+
+  return results.sort(() => Math.random() - 0.5);
 }

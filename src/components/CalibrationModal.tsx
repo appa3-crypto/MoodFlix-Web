@@ -4,10 +4,11 @@ import type { Recommendation, CalibResult } from '../types';
 export type CalibRating = 'liked' | 'disliked' | 'seen';
 
 interface Props {
-  onComplete:  (results: CalibResult[]) => void;
-  onDismiss:   () => void;
-  excludeIds?: number[];
-  catalog?:    Recommendation[];   // vrais films du catalogue principal
+  onComplete:     (results: CalibResult[]) => void;
+  onDismiss:      () => void;
+  excludeIds?:    number[];
+  catalog?:       Recommendation[];
+  isLoadingDeck?: boolean;
 }
 
 const TMDB_KEY = import.meta.env.VITE_TMDB_API_KEY as string | undefined;
@@ -45,7 +46,7 @@ function buildDeck(catalog: Recommendation[], excludeIds: number[]): Recommendat
   return shuffle(available).slice(0, DECK_SIZE);
 }
 
-export function CalibrationModal({ onComplete, onDismiss, excludeIds = [], catalog = [] }: Props) {
+export function CalibrationModal({ onComplete, onDismiss, excludeIds = [], catalog = [], isLoadingDeck = false }: Props) {
   const [deck,        setDeck]        = useState<Recommendation[]>(() => buildDeck(catalog, excludeIds));
   const [index,       setIndex]       = useState(0);
   const [dragX,       setDragX]       = useState(0);
@@ -98,7 +99,26 @@ export function CalibrationModal({ onComplete, onDismiss, excludeIds = [], catal
     }
   }, [index, deck]);
 
-  if (!item) return null;
+  if (!item) {
+    if (isLoadingDeck) return (
+      <div className="calib-overlay">
+        <div className="calib-header">
+          <div className="calib-header-left">
+            <h2 className="calib-title">Calibre tes goûts</h2>
+            <p className="calib-sub">Chargement des films TMDB…</p>
+          </div>
+          <div className="calib-header-right">
+            <button className="calib-close" onClick={onDismiss}>✕</button>
+          </div>
+        </div>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16 }}>
+          <div className="loading-spinner" />
+          <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Sélection de films variés en cours…</p>
+        </div>
+      </div>
+    );
+    return null;
+  }
 
   function hideTutorial() {
     if (showTutorial) setShowTutorial(false);
