@@ -30,7 +30,7 @@ import { PaywallModal } from './components/PaywallModal';
 import { OnboardingScreen } from './components/OnboardingScreen';
 import { useUserProfile } from './hooks/useUserProfile';
 import { useFreemium } from './hooks/useFreemium';
-import { getTopRecommendations, getQuickRecommendations, getHiddenGem } from './utils/recommendationEngine';
+import { getTopRecommendations, getQuickRecommendations, getHiddenGem, reRankWithAI } from './utils/recommendationEngine';
 import { discoverContent, enrichItem } from './services/tmdbService';
 import { track } from './utils/analytics';
 import type { ScoredRecommendation, CalibResult, WatchPlan } from './types';
@@ -110,6 +110,8 @@ export default function App() {
     }, 200);
   }, []);
 
+  const AI_RANKING_ENABLED = import.meta.env.VITE_AI_RANKING_ENABLED === 'true';
+
   // ── CORE SEARCH ENGINE ──
   async function triggerSearch(currentChoices: UserChoices) {
     if (!freemium.canUse('searches')) {
@@ -130,27 +132,42 @@ export default function App() {
     setTmdbPool(tmdbItems);
 
     const allItems = [...ALL_ITEMS, ...tmdbItems];
-    const tops = getTopRecommendations(allItems, currentChoices, profile, 3, []);
+
+    // Récupère plus de candidats si l'IA est activée (elle re-choisit parmi les meilleurs)
+    const candidateCount = AI_RANKING_ENABLED ? 8 : 3;
+    let tops = getTopRecommendations(allItems, currentChoices, profile, candidateCount, []);
+
+    // Affiche les 3 premiers résultats locaux immédiatement
+    setResults(tops.slice(0, 3));
+    setIsSearching(false);
+
+    // Phase IA (optionnelle, non-bloquante, max 3s avant fallback)
+    if (AI_RANKING_ENABLED && tops.length >= 3) {
+      const reRanked = await reRankWithAI(tops, currentChoices, profile);
+      tops = reRanked;
+      setResults(reRanked.slice(0, 3));
+      track('ai_ranking_applied', { mood: currentChoices.mood ?? undefined, count: reRanked.length });
+    }
+
+    const finalTop3 = tops.slice(0, 3);
 
     recordPreferences(currentChoices.type ?? 'both', currentChoices.duration, currentChoices.platforms);
-    if (tops.length > 0) {
+    if (finalTop3.length > 0) {
       recordRecommendedHistory(
-        tops.map(item => ({
+        finalTop3.map(item => ({
           itemId: item.id, title: item.title,
           date: new Date().toISOString(), mood: currentChoices.mood,
         }))
       );
     }
 
-    const topIds = tops.map(r => r.id);
+    const topIds = finalTop3.map(r => r.id);
     const gem = getHiddenGem(allItems, currentChoices, profile, [...topIds]);
     setHiddenGem(gem);
 
-    setResults(tops);
-    setIsSearching(false);
-
+    // Enrichissement posters (async, ne bloque pas l'UI)
     const enriched = await Promise.all(
-      tops.map(item => enrichItem(item).then(e => ({ ...item, ...e })))
+      finalTop3.map(item => enrichItem(item).then(e => ({ ...item, ...e })))
     );
     setResults(enriched as ScoredRecommendation[]);
 

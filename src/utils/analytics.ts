@@ -22,7 +22,8 @@ export type AnalyticsEvent =
   | 'reminder_abandoned'
   | 'history_viewed'
   | 'profile_viewed'
-  | 'premium_clicked';
+  | 'premium_clicked'
+  | 'ai_ranking_applied';
 
 export type TrackPayload = Record<string, string | number | boolean | null | undefined>;
 

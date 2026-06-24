@@ -48,6 +48,9 @@ export interface Recommendation {
 export interface ScoredRecommendation extends Recommendation {
   score: number;
   isDiscovery?: boolean;
+  recommendationIntent?: string;
+  aiRank?: number;
+  aiReason?: string;
 }
 
 export interface SatisfactionEntry {
