@@ -43,6 +43,30 @@ const ALL_ITEMS = [...rawData as Recommendation[], ...calibrationData as Recomme
 // Compile-time flag — set VITE_AI_RANKING_ENABLED=true in Vercel (requires redeploy)
 const AI_RANKING_ENABLED = import.meta.env.VITE_AI_RANKING_ENABLED === 'true';
 
+// Snapshot complet d'un item pour l'historique profil — utilisé par toutes les actions
+function createItemSnapshot(item: Recommendation | ScoredRecommendation): import('./types').ItemMeta {
+  return {
+    title:       item.title,
+    type:        item.type,
+    posterUrl:   item.posterUrl,
+    posterEmoji: item.posterEmoji,
+    posterColor: item.posterColor,
+    tmdbId:      item.tmdbId,
+    overview:    item.overview,
+    atmosphere:  item.atmosphere,
+    shortReason: item.shortReason,
+    tags:        item.tags,
+    platforms:   item.availableOn ?? item.platforms,
+    duration:    item.duration,
+    seasons:     item.seasons,
+    backdropUrl: item.backdropUrl,
+    voteAverage: item.voteAverage,
+    releaseDate: item.releaseDate,
+    source:      item.fromTMDB ? 'tmdb' : 'local',
+    addedAt:     new Date().toISOString(),
+  };
+}
+
 const INITIAL_CHOICES: UserChoices = {
   mood: null,
   type: null,
@@ -69,6 +93,7 @@ export default function App() {
     addSatisfaction,
     recordRecommendedHistory,
     batchCalibration,
+    recordCalibrationSeen,
     planWatch,
     updateWatchPlan,
     confirmWatched,
@@ -133,7 +158,7 @@ export default function App() {
     goTo('results');
 
     // TMDB-first : interroger TMDB sans exclure le catalogue local (plus de résultats)
-    const tmdbItems = await discoverContent(currentChoices, []);
+    const tmdbItems = await discoverContent(currentChoices, [], profile?.settings?.animationPref);
     setTmdbPool(tmdbItems);
 
     // Si TMDB retourne assez de résultats, c'est la source principale
@@ -262,7 +287,9 @@ export default function App() {
     if (isQuickMode) {
       const newExcluded = [...quickExcludedIds, ...results.map(r => r.id)];
       setQuickExcludedIds(newExcluded);
-      const tops = getQuickRecommendations(ALL_ITEMS, quickType, lastQuickVibe, profile, 3, newExcluded);
+      // Réutilise le pool TMDB chargé par handleQuickVibe
+      const quickPool = tmdbPool.length >= 3 ? tmdbPool : ALL_ITEMS;
+      const tops = getQuickRecommendations(quickPool, quickType, lastQuickVibe, profile, 3, newExcluded);
       setResults(tops);
       if (tops.length > 0) {
         recordRecommendedHistory(
@@ -316,7 +343,7 @@ export default function App() {
     goTo('quick-vibe');
   }
 
-  function handleQuickVibe(vibe: QuickVibe) {
+  async function handleQuickVibe(vibe: QuickVibe) {
     if (!freemium.canUse('searches')) {
       setPaywallFeature('Recherches illimitées');
       setShowPaywall(true);
@@ -325,33 +352,78 @@ export default function App() {
     freemium.consume('searches');
     track('quick_mode_used', { vibe, type: quickType });
     setLastQuickVibe(vibe);
-    const tops = getQuickRecommendations(ALL_ITEMS, quickType, vibe, profile, 3, []);
+    setIsSearching(true);
+    setResults([]);
+    goTo('results');
+
+    // Map vibe → mood TMDB
+    const VIBE_TO_MOOD: Record<QuickVibe, Mood> = {
+      light: 'laugh', intense: 'scared', surprising: 'surprised',
+    };
+    const quickMood = VIBE_TO_MOOD[vibe];
+    const quickChoices: UserChoices = {
+      mood: quickMood, type: quickType, duration: null,
+      platforms: profile?.preferredPlatforms ?? [], references: '',
+    };
+
+    const tmdbQuickItems = await discoverContent(quickChoices, [], profile?.settings?.animationPref);
+    const quickPool = tmdbQuickItems.length >= 3 ? tmdbQuickItems : ALL_ITEMS;
+    setTmdbPool(tmdbQuickItems);
+
+    if (tmdbQuickItems.length < 3 && import.meta.env.DEV) {
+      console.warn('⚠️ Quick mode TMDB unavailable — local fallback used');
+    }
+
+    let tops = getQuickRecommendations(quickPool, quickType, vibe, profile, 3, quickExcludedIds);
     setResults(tops);
-    if (tops.length > 0) {
+    setIsSearching(false);
+
+    if (AI_RANKING_ENABLED && tops.length >= 3) {
+      const reRanked = await reRankWithAI(tops, quickChoices, profile);
+      tops = reRanked;
+      setResults(reRanked.slice(0, 3));
+    }
+
+    const finalTop3 = tops.slice(0, 3);
+    if (finalTop3.length > 0) {
       recordRecommendedHistory(
-        tops.map(item => ({
+        finalTop3.map(item => ({
           itemId: item.id, title: item.title,
-          date: new Date().toISOString(), mood: null,
+          date: new Date().toISOString(), mood: quickMood,
         }))
       );
     }
-    goTo('results');
+
+    // Enrichissement posters TMDB (déjà présents sur les items TMDB, rapide)
+    const enriched = await Promise.all(
+      finalTop3.map(item => enrichItem(item).then(e => ({ ...item, ...e })))
+    );
+    setResults(enriched as ScoredRecommendation[]);
   }
 
   // ── CALIBRATION ──
   async function openCalibration() {
+    // Vider l'ancienne deck immédiatement — évite que CalibrationModal monte avec le vieux catalog
+    setCalibDeck([]);
     setShowCalibration(true);
     setCalibLoading(true);
     try {
+      // Exclure tout ce qui a déjà été montré en calibration + tout ce qui est connu du profil
       const excludeSet = new Set<number>([
         ...(profile?.seenItems ?? []),
         ...(profile?.dislikedItems ?? []),
+        ...(profile?.likedItems ?? []),
+        ...(profile?.wantToWatchItems ?? []),
+        ...(profile?.calibrationSeenIds ?? []),
       ]);
       const deck = await discoverForCalibration(excludeSet);
-      // Si TMDB retourne au moins 5 items avec affiche, on les utilise
-      setCalibDeck(deck.length >= 5 ? deck : rawData as Recommendation[]);
+      // Enregistrer IMMÉDIATEMENT tous les items affichés — quelle que soit la réponse utilisateur
+      // Priority: tmdbId (stable TMDB ID) > id (même valeur pour les items TMDB)
+      if (deck.length > 0) recordCalibrationSeen(deck.map(i => i.tmdbId ?? i.id));
+      // Ne pas utiliser rawData comme fallback ici — le modal gère son propre état vide
+      setCalibDeck(deck.length >= 5 ? deck : []);
     } catch {
-      setCalibDeck(rawData as Recommendation[]);
+      setCalibDeck([]);
     } finally {
       setCalibLoading(false);
     }
@@ -433,6 +505,7 @@ export default function App() {
         implicitChoices.type ?? 'both',
         implicitChoices.platforms,
         recentExcludeIds,
+        profile?.settings?.animationPref,
       );
 
       if (import.meta.env.DEV && cfmPool.length < 5) {
@@ -462,6 +535,14 @@ export default function App() {
 
       setCfmItems(pool);
       setShowChooseForMe(true);
+
+      // Enregistre TOUS les items affichés dans la modal pour les exclure au prochain appel frais
+      recordRecommendedHistory(
+        pool.map(item => ({
+          itemId: item.id, title: item.title,
+          date: new Date().toISOString(), mood: implicitChoices.mood,
+        }))
+      );
     } finally {
       setCfmLoading(false);
     }
@@ -471,13 +552,7 @@ export default function App() {
     planWatch(plan);
     setShowChooseForMe(false);
     const item = cfmItems.find(r => r.id === plan.itemId);
-    if (item) {
-      recordAction(plan.itemId, 'like', {
-        title: item.title, type: item.type,
-        posterUrl: item.posterUrl, posterEmoji: item.posterEmoji,
-        posterColor: item.posterColor, tmdbId: item.tmdbId,
-      });
-    }
+    if (item) recordAction(plan.itemId, 'like', createItemSnapshot(item));
     setCfmItems([]);
   }
 
@@ -509,22 +584,7 @@ export default function App() {
   // ── CARD ACTIONS ──
   function handleAction(itemId: number, action: 'like' | 'seen' | 'dislike' | 'too-long') {
     const item = [...results, ...(hiddenGem ? [hiddenGem] : [])].find(r => r.id === itemId);
-    recordAction(itemId, action, item ? {
-      title:        item.title,
-      type:         item.type,
-      posterUrl:    item.posterUrl,
-      posterEmoji:  item.posterEmoji,
-      posterColor:  item.posterColor,
-      tmdbId:       item.tmdbId,
-      overview:     item.overview,
-      atmosphere:   item.atmosphere,
-      shortReason:  item.shortReason,
-      tags:         item.tags,
-      platforms:    item.availableOn ?? item.platforms,
-      duration:     item.duration,
-      seasons:      item.seasons,
-      addedAt:      new Date().toISOString(),
-    } : undefined);
+    recordAction(itemId, action, item ? createItemSnapshot(item) : undefined);
   }
   function handleUndo(itemId: number) { undoAction(itemId); }
   function handleSatisfaction(itemId: number, rating: SatisfactionRating, reasons: string[]) {
@@ -880,8 +940,12 @@ export default function App() {
         <CalibrationModal
           onComplete={handleCalibrationComplete}
           onDismiss={() => { setShowCalibration(false); setCalibDeck([]); }}
-          excludeIds={profile ? [...profile.seenItems, ...profile.dislikedItems] : []}
-          catalog={calibDeck.length > 0 ? calibDeck : rawData as Recommendation[]}
+          excludeIds={profile ? [
+            ...profile.seenItems,
+            ...profile.dislikedItems,
+            ...(profile.calibrationSeenIds ?? []),
+          ] : []}
+          catalog={calibDeck}
           isLoadingDeck={calibLoading}
         />
       )}

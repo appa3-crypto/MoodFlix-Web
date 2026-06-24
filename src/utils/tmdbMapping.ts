@@ -42,9 +42,11 @@ function genresToMoods(genreIds: number[]): string[] {
   const moods: string[] = [];
   if (genreIds.some(g => [878, 9648, 14].includes(g))) moods.push('mind-bending');
   if (genreIds.some(g => [27, 53].includes(g))) moods.push('scared');
-  if (genreIds.some(g => [35, 16].includes(g))) moods.push('laugh');
+  // Genre 16 (animation) ≠ comédie — seul genre 35 qualifie pour "rire"
+  // Sinon, les films d'animation dominent les recommandations "rire"
+  if (genreIds.some(g => g === 35)) moods.push('laugh');
   if (genreIds.some(g => [18, 10749].includes(g))) moods.push('moved');
-  if (genreIds.some(g => [12, 28].includes(g))) moods.push('escape');
+  if (genreIds.some(g => [12, 28, 16, 10751].includes(g))) moods.push('escape');
   if (genreIds.some(g => [53, 9648, 80].includes(g))) moods.push('surprised');
   return moods.length > 0 ? moods : ['escape'];
 }
@@ -54,7 +56,7 @@ function genresToTags(genreIds: number[]): string[] {
     28: 'action', 12: 'aventure', 16: 'animation', 35: 'comédie',
     80: 'polar', 18: 'drame', 14: 'fantastique', 27: 'horreur',
     9648: 'mystère', 10749: 'romance', 878: 'sci-fi', 53: 'thriller',
-    10752: 'guerre', 37: 'western', 36: 'histoire',
+    10752: 'guerre', 37: 'western', 36: 'histoire', 10751: 'famille',
   };
   return genreIds.map(id => map[id]).filter(Boolean);
 }
@@ -62,7 +64,7 @@ function genresToTags(genreIds: number[]): string[] {
 function estimateScores(genreIds: number[], voteAverage: number) {
   const isMystery = genreIds.some(g => [9648, 878].includes(g));
   const isHorror  = genreIds.some(g => [27, 53].includes(g));
-  const isComedy  = genreIds.some(g => [35, 16].includes(g));
+  const isComedy  = genreIds.some(g => g === 35); // Genre 16 (animation) ≠ comédie
   const isDrama   = genreIds.some(g => [18, 10749].includes(g));
   const isComplex = genreIds.some(g => [878, 9648, 80, 18].includes(g));
   const quality   = Math.max(0, (voteAverage - 5) / 5); // 0..1
@@ -87,6 +89,9 @@ export interface TMDBDiscoveryItem {
   vote_count: number;
   overview: string;
   poster_path: string | null;
+  backdrop_path?: string | null;
+  release_date?: string;     // films
+  first_air_date?: string;   // séries
 }
 
 export function mapTMDBToRecommendation(
@@ -119,13 +124,15 @@ export function mapTMDBToRecommendation(
     shortReason: `${rating} · ${tags.slice(0, 2).join(', ')}`,
     disappointmentRisk: item.vote_count < 200 ? 'Contenu peu connu — les avis peuvent varier.' : 'Bien noté par la communauté TMDB.',
     posterColor: POSTER_COLORS[item.id % POSTER_COLORS.length],
-    posterEmoji: moods.includes('laugh') ? '😂' : moods.includes('scared') ? '👻' : moods.includes('mind-bending') ? '🌀' : moods.includes('moved') ? '🥺' : '🎬',
-    posterUrl: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : undefined,
-    tmdbId: item.id,
-    overview: item.overview || undefined,
+    posterEmoji: moods.includes('laugh') ? '😂' : moods.includes('scared') ? '👻' : moods.includes('mind-bending') ? '🌀' : moods.includes('moved') ? '🥺' : moods.includes('escape') ? '🎬' : '🎬',
+    posterUrl:   item.poster_path   ? `https://image.tmdb.org/t/p/w500${item.poster_path}`   : undefined,
+    backdropUrl: item.backdrop_path ? `https://image.tmdb.org/t/p/w780${item.backdrop_path}` : undefined,
+    tmdbId:      item.id,
+    overview:    item.overview || undefined,
     voteAverage: item.vote_average > 0 ? item.vote_average : undefined,
     availableOn: providers.length > 0 ? providers : undefined,
-    fromTMDB: true,
+    fromTMDB:    true,
+    releaseDate: item.release_date ?? item.first_air_date,
     ...scores,
   };
 }

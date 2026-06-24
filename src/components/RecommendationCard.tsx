@@ -172,7 +172,7 @@ export function RecommendationCard({ item, rank, profile, mood, onAction, onUndo
           />
         )}
         {!heroSrc && (
-          <span className="card-hero-emoji">{item.posterEmoji}</span>
+          <div className="card-hero-no-poster" />
         )}
         <div className="card-hero-gradient" />
 

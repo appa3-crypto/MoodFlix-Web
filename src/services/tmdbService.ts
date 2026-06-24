@@ -1,4 +1,4 @@
-import type { Recommendation, UserChoices, Mood, ContentType, Platform } from '../types';
+import type { Recommendation, UserChoices, Mood, ContentType, Platform, AnimationPref } from '../types';
 import {
   MOOD_GENRE_IDS,
   buildWatchProviderParam,
@@ -158,6 +158,7 @@ interface DiscoverResponse {
 export async function discoverContent(
   choices: UserChoices,
   excludedTitles: string[],
+  animationPref?: AnimationPref,
 ): Promise<Recommendation[]> {
   if (!API_KEY || !choices.mood) return [];
 
@@ -165,15 +166,25 @@ export async function discoverContent(
   const providerParam = buildWatchProviderParam(choices.platforms);
   const excludedLower = new Set(excludedTitles.map(t => t.toLowerCase().trim()));
 
+  // Genres à exclure pour l'humeur "rire" quand l'utilisateur veut peu/pas d'animation
+  const shouldExcludeAnimation =
+    choices.mood === 'laugh' &&
+    (animationPref === 'rarely' || animationPref === 'never');
+
   const allResults: Recommendation[] = [];
 
   async function discover(mediaType: 'movie' | 'tv', page = 1): Promise<void> {
     const typeItems: Recommendation[] = [];
 
+    const baseExcluded = mediaType === 'tv' ? EXCLUDED_GENRES_TV : EXCLUDED_GENRES_MOVIE;
+    const withoutGenres = shouldExcludeAnimation
+      ? `${baseExcluded},16,10751`
+      : baseExcluded;
+
     const params: Record<string, string> = {
       with_genres:    genreIds,
       sort_by:        'popularity.desc',   // fraîcheur + popularité > vote_average seul
-      without_genres: mediaType === 'tv' ? EXCLUDED_GENRES_TV : EXCLUDED_GENRES_MOVIE,
+      without_genres: withoutGenres,
       page:           String(page),
       ...qualityParams(choices.mood!),
     };
@@ -245,44 +256,73 @@ const CALIB_GENRE_SETS: { genres: string; mediaType: 'movie' | 'tv' }[] = [
   { genres: '10759',    mediaType: 'tv'    }, // Action/Aventure série
 ];
 
+const CALIB_MIN_ITEMS = 12; // Minimum d'items nouveaux pour constituer une deck valide
+
 export async function discoverForCalibration(excludeIds: Set<number>): Promise<Recommendation[]> {
   if (!API_KEY) return [];
 
   const results: Recommendation[] = [];
-  const seenIds = new Set<number>(excludeIds);
+  const seenIds    = new Set<number>(excludeIds);
+  const triedKeys  = new Set<string>(); // genre:mediaType:page déjà essayés
 
-  // 5 genre sets aléatoires pour varier à chaque ouverture de la calibration
-  const sets = [...CALIB_GENRE_SETS].sort(() => Math.random() - 0.5).slice(0, 5);
+  // Jusqu'à 3 rounds si pas assez d'items nouveaux
+  // Round 0 : pages 1-5 (les plus populaires)
+  // Round 1 : pages 4-9 (moins populaires)
+  // Round 2 : pages 8-14 (encore moins populaires)
+  for (let round = 0; round < 3; round++) {
+    if (results.length >= CALIB_MIN_ITEMS) break;
 
-  await Promise.all(sets.map(async ({ genres, mediaType }) => {
-    // Page aléatoire 1-5 pour éviter toujours les mêmes films populaires
-    const page = Math.floor(Math.random() * 5) + 1;
-    const data = await fetchTMDB<DiscoverResponse>(`/discover/${mediaType}`, {
-      with_genres:      genres,
-      sort_by:          'popularity.desc',
-      'vote_count.gte': '400',
-      'vote_average.gte': '6.0',
-      without_genres:   mediaType === 'tv' ? EXCLUDED_GENRES_TV : EXCLUDED_GENRES_MOVIE,
-      page:             String(page),
-    });
-    if (!data?.results) return;
+    const pageOffset = round * 4; // pages de plus en plus hautes à chaque round
+    const shuffledSets = [...CALIB_GENRE_SETS].sort(() => Math.random() - 0.5);
 
-    const mType = mediaType === 'movie' ? 'movie' : 'series';
-    const minChoices: UserChoices = {
-      mood: null, type: mType, duration: null, platforms: [], references: '',
-    };
+    await Promise.all(shuffledSets.slice(0, 5).map(async ({ genres, mediaType }) => {
+      // Choisir une page dans la plage du round, éviter les doublons exact genre+page
+      let page: number;
+      let triedKey: string;
+      let attempts = 0;
+      do {
+        page = pageOffset + Math.floor(Math.random() * 5) + 1; // 1-5, 5-9, 9-13
+        triedKey = `${genres}:${mediaType}:${page}`;
+        attempts++;
+      } while (triedKeys.has(triedKey) && attempts < 5);
 
-    for (const item of data.results) {
-      if (!item.poster_path)      continue; // affiche obligatoire
-      if (!item.overview?.trim()) continue; // synopsis obligatoire
-      if (seenIds.has(item.id))   continue;
-      seenIds.add(item.id);
-      results.push(mapTMDBToRecommendation(item, mType, [], minChoices));
-    }
-  }));
+      if (triedKeys.has(triedKey)) return; // toutes les pages de cette plage ont été essayées
+      triedKeys.add(triedKey);
 
-  // Mélanger et retourner jusqu'à 12 items (10 pour la deck + 2 de réserve)
-  return results.sort(() => Math.random() - 0.5).slice(0, 12);
+      const data = await fetchTMDB<DiscoverResponse>(`/discover/${mediaType}`, {
+        with_genres:        genres,
+        sort_by:            'popularity.desc',
+        'vote_count.gte':   round === 0 ? '400' : '200', // seuil plus bas dans les rounds suivants
+        'vote_average.gte': '6.0',
+        without_genres:     mediaType === 'tv' ? EXCLUDED_GENRES_TV : EXCLUDED_GENRES_MOVIE,
+        page:               String(page),
+      });
+      if (!data?.results) return;
+
+      const mType = mediaType === 'movie' ? 'movie' : 'series';
+      const minChoices: UserChoices = {
+        mood: null, type: mType, duration: null, platforms: [], references: '',
+      };
+
+      for (const item of data.results) {
+        if (!item.poster_path)      continue;
+        if (!item.overview?.trim()) continue;
+        if (seenIds.has(item.id))   continue; // exclure tous les IDs déjà vus (calibrationSeenIds + session)
+        seenIds.add(item.id);
+        results.push(mapTMDBToRecommendation(item, mType, [], minChoices));
+      }
+    }));
+  }
+
+  // Équilibrer : max 2 items animation/famille sur les 25 retenus
+  const animItems = results.filter(r => r.tags.includes('animation') || r.tags.includes('famille'));
+  const liveItems = results.filter(r => !r.tags.includes('animation') && !r.tags.includes('famille'));
+  const balanced = [
+    ...liveItems.sort(() => Math.random() - 0.5),
+    ...animItems.sort(() => Math.random() - 0.5).slice(0, 2),
+  ].sort(() => Math.random() - 0.5);
+
+  return balanced.slice(0, 25);
 }
 
 // ── CFM DISCOVERY ─────────────────────────────────────────────────────────────
@@ -293,6 +333,7 @@ export async function discoverForCFM(
   type: ContentType,
   platforms: Platform[],
   excludeIds: Set<number>,
+  animationPref?: AnimationPref,
 ): Promise<Recommendation[]> {
   if (!API_KEY || moods.length === 0) return [];
 
@@ -313,6 +354,10 @@ export async function discoverForCFM(
         const genreIds = MOOD_GENRE_IDS[mood]?.join('|') ?? '';
         if (!genreIds) return;
 
+        const shouldExcludeAnim =
+          mood === 'laugh' && (animationPref === 'rarely' || animationPref === 'never');
+        const baseExcluded = mediaType === 'tv' ? EXCLUDED_GENRES_TV : EXCLUDED_GENRES_MOVIE;
+
         // Page aléatoire pour ne pas toujours proposer les mêmes
         const page = Math.floor(Math.random() * 4) + 1;
         const params: Record<string, string> = {
@@ -320,7 +365,7 @@ export async function discoverForCFM(
           sort_by:          'popularity.desc',
           'vote_count.gte': '200',
           'vote_average.gte': '6.3',
-          without_genres:   mediaType === 'tv' ? EXCLUDED_GENRES_TV : EXCLUDED_GENRES_MOVIE,
+          without_genres:   shouldExcludeAnim ? `${baseExcluded},16,10751` : baseExcluded,
           page:             String(page),
         };
 

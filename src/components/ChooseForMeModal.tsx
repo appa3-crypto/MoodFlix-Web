@@ -139,7 +139,7 @@ export function ChooseForMeModal({ items, aiUsed = false, onConfirm, onDismiss, 
             <div className="cfm-result-poster" style={{ background: chosen.posterColor }}>
               {chosen.posterUrl
                 ? <img src={chosen.posterUrl} className="cfm-result-img" alt={chosen.title} />
-                : <span className="cfm-result-fallback">{chosen.posterEmoji}</span>
+                : <div className="cfm-result-no-poster" />
               }
             </div>
 

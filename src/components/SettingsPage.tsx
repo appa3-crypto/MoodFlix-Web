@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { UserProfile, AppSettings, NotificationPrefs, Platform } from '../types';
+import type { UserProfile, AppSettings, NotificationPrefs, Platform, AnimationPref } from '../types';
 
 interface Props {
   profile:          UserProfile;
@@ -190,6 +190,41 @@ export function SettingsPage({ profile, onUpdateSettings, onUpdatePrefs, onUpdat
         >
           {platformSaved ? '✓ Enregistré !' : 'Enregistrer mes plateformes'}
         </button>
+      </div>
+
+      {/* ── PRÉFÉRENCES DE CONTENU ── */}
+      <div className="settings-section">
+        <h2 className="settings-section-title">Préférences de contenu</h2>
+        <p className="settings-section-desc">
+          Ajuste les types de contenu proposés dans les recommandations.
+        </p>
+
+        <div className="settings-row settings-row-stack">
+          <div className="settings-row-info">
+            <p className="settings-row-label">Animation &amp; Famille</p>
+            <p className="settings-row-desc">
+              Quelle place donner aux films d'animation et contenus familiaux dans tes recommandations ?
+            </p>
+          </div>
+          <div className="settings-anim-options">
+            {([
+              { value: 'love',      label: 'J\'adore',     desc: 'Inclure librement' },
+              { value: 'sometimes', label: 'Parfois',      desc: 'Max 1 sur 5' },
+              { value: 'rarely',    label: 'Rarement',     desc: 'Pénalisé' },
+              { value: 'never',     label: 'Jamais',       desc: 'Exclu' },
+            ] as { value: AnimationPref; label: string; desc: string }[]).map(opt => (
+              <button
+                key={opt.value}
+                className={`settings-anim-btn ${settings.animationPref === opt.value ? 'active' : ''}`}
+                onClick={() => onUpdateSettings({ ...settings, animationPref: opt.value })}
+                aria-pressed={settings.animationPref === opt.value}
+              >
+                <span className="settings-anim-label">{opt.label}</span>
+                <span className="settings-anim-desc">{opt.desc}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* ── SUPPORT ── */}

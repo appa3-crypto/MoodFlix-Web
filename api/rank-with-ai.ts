@@ -19,13 +19,14 @@ interface Candidate {
 }
 
 interface RankBody {
-  mood:         string;
-  moodLabel:    string;
-  type:         string;
-  duration:     string;
-  platforms:    string[];
-  isAutoChoice: boolean;
-  candidates:   Candidate[];
+  mood:          string;
+  moodLabel:     string;
+  type:          string;
+  duration:      string;
+  platforms:     string[];
+  isAutoChoice:  boolean;
+  animationPref?: 'love' | 'sometimes' | 'rarely' | 'never';
+  candidates:    Candidate[];
   profile: {
     pseudo:             string;
     topMoods:           string[];
@@ -95,6 +96,15 @@ Les IDs doivent correspondre exactement aux IDs des candidats.
 Le premier ID est ton meilleur choix pour ${pseudo}.`;
   }
 
+  // Règle animation selon la préférence
+  const animRule = b.animationPref === 'never'
+    ? '1b. IMPORTANT : cet utilisateur ne veut JAMAIS de films d\'animation ou d\'animation familiale. Exclue-les totalement du classement rire.'
+    : b.animationPref === 'rarely'
+    ? '1b. Cet utilisateur préfère rarement l\'animation. Place au maximum 1 film d\'animation (tags: animation ou famille) dans le top 5, et jamais en première position.'
+    : b.animationPref === 'sometimes'
+    ? '1b. Équilibre : place au maximum 1 film d\'animation dans le top 5 pour humeur rire.'
+    : ''; // 'love' → aucune restriction
+
   // Mode normal : re-ranking avec humeur précise
   return `Tu es MoodFlix IA, un expert cinéma et séries.
 Tu dois choisir et ordonner les meilleurs contenus pour ${pseudo}.
@@ -112,11 +122,12 @@ CANDIDATS À CLASSER (${b.candidates.length} options) :
 ${candidatesSection}
 
 RÈGLES STRICTES :
-1. Si l'humeur est "rire", classe en premier les VRAIES comédies (humour ≥ 7, intention = comédie pure ou divertissement léger).
+1. Si l'humeur est "rire", classe en premier les VRAIES comédies adultes (humour ≥ 7, intention = comédie pure ou divertissement léger).
    Ne place PAS un thriller ou un drame émotionnel en premier même s'il a une touche d'humour.
    "La La Land" n'est pas une recommandation rire — c'est un drame musical.
    "Forrest Gump" n'est pas une recommandation rire — c'est un feel-good émotionnel.
    "Knives Out" n'est une recommandation rire que si aucune vraie comédie n'est disponible.
+${animRule ? `${animRule}` : ''}
 
 2. Si l'humeur est "suspense/scared", classe en premier les thrillers et films d'horreur.
    Pas de comédie romantique en top 3.

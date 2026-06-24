@@ -19,7 +19,7 @@ interface Props {
 export function PosterImage({
   src,
   alt,
-  emoji,
+  emoji: _emoji,
   color,
   className = '',
   imgClassName = '',
@@ -59,11 +59,10 @@ export function PosterImage({
       className={`poster-img-wrap ${className}`}
       style={{ background: color, ...style }}
     >
-      {/* Fallback premium card */}
+      {/* Fallback — pas d'emoji, fond coloré avec label */}
       {showFallback && (
         <div className="poster-fallback">
-          <span className="poster-fallback-emoji">{emoji}</span>
-          {!src && <span className="poster-fallback-label">Affiche indisponible</span>}
+          <span className="poster-fallback-label">Affiche indisponible</span>
         </div>
       )}
 

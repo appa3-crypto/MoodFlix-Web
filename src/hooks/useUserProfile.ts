@@ -11,6 +11,7 @@ import type {
   CalibResult,
   WatchPlan,
   AppSettings,
+  AnimationPref,
 } from '../types';
 
 const STORAGE_KEY = 'moodflix_profile_v2';
@@ -24,6 +25,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     personalTips:     true,
   },
   preferredPlatforms: [],
+  animationPref: 'sometimes',
 };
 
 function defaultProfile(pseudo: string, platforms: Platform[]): UserProfile {
@@ -44,6 +46,7 @@ function defaultProfile(pseudo: string, platforms: Platform[]): UserProfile {
     createdAt: new Date().toISOString(),
     itemMetaStore: {},
     watchPlan: null,
+    calibrationSeenIds: [],
     settings: { ...DEFAULT_SETTINGS, preferredPlatforms: platforms },
   };
 }
@@ -65,7 +68,8 @@ function migrate(raw: Partial<UserProfile> & Record<string, unknown>): UserProfi
     preferredDuration: (raw.preferredDuration as Duration | null | undefined) ?? null,
     itemMetaStore: (raw.itemMetaStore as Record<number, ItemMeta> | undefined) ?? {},
     watchPlan: (raw.watchPlan as WatchPlan | null | undefined) ?? null,
-    abandonedItems: (raw.abandonedItems as number[] | undefined) ?? [],
+    abandonedItems:      (raw.abandonedItems as number[] | undefined) ?? [],
+    calibrationSeenIds: (raw.calibrationSeenIds as number[] | undefined) ?? [],
     settings: {
       ...DEFAULT_SETTINGS,
       ...(raw.settings as AppSettings | undefined),
@@ -73,6 +77,7 @@ function migrate(raw: Partial<UserProfile> & Record<string, unknown>): UserProfi
         ...DEFAULT_SETTINGS.notifications,
         ...((raw.settings as AppSettings | undefined)?.notifications),
       },
+      animationPref: ((raw.settings as AppSettings | undefined)?.animationPref as AnimationPref | undefined) ?? 'sometimes',
     },
   } as UserProfile;
 }
@@ -271,6 +276,13 @@ export function useUserProfile() {
     save(updated);
   }
 
+  function recordCalibrationSeen(ids: number[]) {
+    if (!profile) return;
+    const existing = new Set(profile.calibrationSeenIds ?? []);
+    ids.forEach(id => existing.add(id));
+    save({ ...profile, calibrationSeenIds: Array.from(existing) });
+  }
+
   function batchCalibration(ratings: CalibResult[]) {
     if (!profile) return;
     let updated = { ...profile };
@@ -286,13 +298,18 @@ export function useUserProfile() {
       updated.likedItems       = updated.likedItems.filter(id => id !== itemId);
 
       metaStore[itemId] = {
-        title: r.title,
-        type: r.type,
-        posterUrl: r.posterUrl,
+        title:       r.title,
+        type:        r.type,
+        posterUrl:   r.posterUrl,
         posterEmoji: r.posterEmoji,
         posterColor: r.posterColor,
-        tmdbId: r.tmdbId,
-        addedAt: new Date().toISOString(),
+        tmdbId:      r.tmdbId,
+        overview:    r.overview,
+        voteAverage: r.voteAverage,
+        backdropUrl: r.backdropUrl,
+        releaseDate: r.releaseDate,
+        source:      r.tmdbId ? 'tmdb' : 'local',
+        addedAt:     new Date().toISOString(),
       };
 
       if (action === 'liked') {
@@ -340,5 +357,6 @@ export function useUserProfile() {
     addSatisfaction,
     recordRecommendedHistory,
     batchCalibration,
+    recordCalibrationSeen,
   };
 }

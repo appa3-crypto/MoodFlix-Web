@@ -1,4 +1,4 @@
-import type { UserChoices, Recommendation, ScoredRecommendation, UserProfile, QuickVibe, Mood, ContentType } from '../types';
+import type { UserChoices, Recommendation, ScoredRecommendation, UserProfile, QuickVibe, Mood, ContentType, AnimationPref } from '../types';
 
 // ── DEBUG ────────────────────────────────────────────────────────────────────
 const DEBUG = import.meta.env.DEV;
@@ -174,6 +174,21 @@ export function scoreRecommendation(
     if (badTag) {
       score -= 25;
       neg.push(`-25 tag incompatible: ${badTag}`);
+    }
+
+    // Pénalité animation/famille selon la préférence utilisateur
+    const animPref = profile?.settings?.animationPref ?? 'sometimes';
+    const isAnimFamily = item.tags.includes('animation') || item.tags.includes('famille');
+    if (isAnimFamily) {
+      if (animPref === 'never') {
+        score -= 40;
+        neg.push(`-40 animation/famille (préférence: jamais)`);
+      } else if (animPref === 'rarely') {
+        score -= 20;
+        neg.push(`-20 animation/famille (préférence: rarement)`);
+      }
+      // 'sometimes' → max 1 en top 5 géré au niveau de l'affichage (pas de pénalité ici)
+      // 'love' → aucune pénalité
     }
   }
 
@@ -603,6 +618,7 @@ export interface AIRankingContext {
   duration:     string;
   platforms:    string[];
   isAutoChoice: boolean;
+  animationPref?: AnimationPref;
   candidates:   AIRankingCandidate[];
   profile: {
     pseudo:         string;
@@ -647,6 +663,7 @@ export function buildAIPrompt(
     duration:     choices.duration ?? 'all',
     platforms:    choices.platforms,
     isAutoChoice: choices.isAutoChoice ?? false,
+    animationPref: profile?.settings?.animationPref,
     candidates: candidates.slice(0, 10).map(c => ({
       id:     c.id,
       title:  c.title,

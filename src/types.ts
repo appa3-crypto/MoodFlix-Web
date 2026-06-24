@@ -6,6 +6,7 @@ export type Platform =
   | 'Apple TV+' | 'Max' | 'Paramount+' | 'Crunchyroll'
   | 'any';
 export type QuickVibe = 'light' | 'intense' | 'surprising';
+export type AnimationPref = 'love' | 'sometimes' | 'rarely' | 'never';
 export type SatisfactionRating = 'loved' | 'good' | 'ok' | 'disappointed' | 'bad';
 
 export interface UserChoices {
@@ -44,6 +45,7 @@ export interface Recommendation {
   voteAverage?: number;
   availableOn?: string[];
   fromTMDB?: boolean;
+  releaseDate?: string;
 }
 
 export interface ScoredRecommendation extends Recommendation {
@@ -79,6 +81,7 @@ export interface NotificationPrefs {
 export interface AppSettings {
   notifications: NotificationPrefs;
   preferredPlatforms: Platform[];
+  animationPref: AnimationPref;
 }
 
 export interface UserProfile {
@@ -98,6 +101,7 @@ export interface UserProfile {
   createdAt: string;
   itemMetaStore: Record<number, ItemMeta>;
   watchPlan: WatchPlan | null;
+  calibrationSeenIds?: number[];
   settings?: AppSettings;
 }
 
@@ -133,10 +137,13 @@ export interface CalibResult {
   posterEmoji: string;
   posterColor: string;
   tmdbId?: number;
+  overview?: string;
+  voteAverage?: number;
+  backdropUrl?: string;
+  releaseDate?: string;
 }
 
-// Minimal snapshot persisted alongside each profile action
-// Extended fields are optional for backward compatibility
+// Snapshot complet persisté à chaque action utilisateur
 export interface ItemMeta {
   title: string;
   type: 'movie' | 'series';
@@ -151,6 +158,10 @@ export interface ItemMeta {
   platforms?: string[];
   duration?: number;
   seasons?: number;
+  backdropUrl?: string;
+  voteAverage?: number;
+  releaseDate?: string;
+  source?: 'tmdb' | 'local';
   addedAt?: string;
 }
 

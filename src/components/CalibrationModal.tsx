@@ -40,14 +40,14 @@ function shuffle<T>(arr: T[]): T[] {
 
 function buildDeck(catalog: Recommendation[], excludeIds: number[]): Recommendation[] {
   const excludeSet = new Set(excludeIds);
-  // Préférer les items avec poster/emoji + pas déjà vus/rejetés
-  const available = catalog.filter(i => !excludeSet.has(i.id) && i.id < 9001);
-  // Varier : mélanger et prendre DECK_SIZE items
+  // Filtre uniquement les exclus (pas de filtre ID — les items TMDB ont des IDs variables)
+  const available = catalog.filter(i => !excludeSet.has(i.id));
   return shuffle(available).slice(0, DECK_SIZE);
 }
 
 export function CalibrationModal({ onComplete, onDismiss, excludeIds = [], catalog = [], isLoadingDeck = false }: Props) {
-  const [deck,        setDeck]        = useState<Recommendation[]>(() => buildDeck(catalog, excludeIds));
+  // Deck courant (toujours vide à l'initialisation — catalog arrive en async via TMDB)
+  const [deck,        setDeck]        = useState<Recommendation[]>([]);
   const [index,       setIndex]       = useState(0);
   const [dragX,       setDragX]       = useState(0);
   const [isDragging,  setIsDragging]  = useState(false);
@@ -56,22 +56,38 @@ export function CalibrationModal({ onComplete, onDismiss, excludeIds = [], catal
   const [results,     setResults]     = useState<CalibResult[]>([]);
   const [showTutorial, setShowTutorial] = useState(true);
   const [posterUrls,  setPosterUrls]  = useState<Record<number, string>>({});
-  const fetchedIds = useRef(new Set<number>());
+  const fetchedIds       = useRef(new Set<number>());
+  // Mémoire de session : tous les items montrés dans ce modal (toutes decks confondues)
+  const sessionSeenIds   = useRef(new Set<number>(excludeIds));
 
   const item     = deck[index];
   const nextItem = deck[index + 1];
 
-  // Reconstruire le deck si catalog change (peut arriver au premier rendu)
+  // Reconstruire le deck quand le catalog TMDB arrive (catalog passe de [] à [items])
   useEffect(() => {
-    if (deck.length === 0 && catalog.length > 0) {
-      setDeck(buildDeck(catalog, excludeIds));
+    if (catalog.length > 0) {
+      // Construire la deck en excluant TOUT ce qui a déjà été montré dans cette session
+      const allExcluded = Array.from(sessionSeenIds.current);
+      const newDeck = buildDeck(catalog, allExcluded);
+      if (newDeck.length > 0) {
+        setDeck(newDeck);
+        setIndex(0);
+        setPosterUrls({});
+        fetchedIds.current = new Set();
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catalog.length]);
 
   function reshuffleDeck() {
-    const alreadyRated = [...excludeIds, ...results.map(r => r.itemId)];
-    const newDeck = buildDeck(catalog, alreadyRated);
+    // Marquer tous les items du deck courant + items déjà notés comme vus dans cette session
+    deck.forEach(item => sessionSeenIds.current.add(item.id));
+    results.forEach(r => sessionSeenIds.current.add(r.itemId));
+
+    const allExcluded = Array.from(sessionSeenIds.current);
+    const newDeck = buildDeck(catalog, allExcluded);
+
+    if (newDeck.length === 0) return; // Plus rien de nouveau dans ce catalog
     setDeck(newDeck);
     setIndex(0);
     setResults([]);
@@ -100,24 +116,41 @@ export function CalibrationModal({ onComplete, onDismiss, excludeIds = [], catal
   }, [index, deck]);
 
   if (!item) {
-    if (isLoadingDeck) return (
+    return (
       <div className="calib-overlay">
         <div className="calib-header">
           <div className="calib-header-left">
             <h2 className="calib-title">Calibre tes goûts</h2>
-            <p className="calib-sub">Chargement des films TMDB…</p>
+            <p className="calib-sub">
+              {isLoadingDeck ? 'Chargement des films TMDB…' : 'Plus de nouvelles propositions'}
+            </p>
           </div>
           <div className="calib-header-right">
             <button className="calib-close" onClick={onDismiss}>✕</button>
           </div>
         </div>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16 }}>
-          <div className="loading-spinner" />
-          <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Sélection de films variés en cours…</p>
+          {isLoadingDeck
+            ? <>
+                <div className="loading-spinner" />
+                <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Sélection de films variés en cours…</p>
+              </>
+            : <>
+                <p style={{ fontSize: 40 }}>🎬</p>
+                <p style={{ color: 'var(--text-primary)', fontSize: 16, fontWeight: 700, textAlign: 'center', padding: '0 24px' }}>
+                  Pas assez de nouvelles propositions pour le moment.
+                </p>
+                <p style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', padding: '0 24px' }}>
+                  Réessaie plus tard — de nouveaux contenus TMDB seront disponibles.
+                </p>
+                <button className="btn-primary" style={{ marginTop: 8 }} onClick={onDismiss}>
+                  Fermer
+                </button>
+              </>
+          }
         </div>
       </div>
     );
-    return null;
   }
 
   function hideTutorial() {
@@ -140,6 +173,10 @@ export function CalibrationModal({ onComplete, onDismiss, excludeIds = [], catal
       posterEmoji: item.posterEmoji,
       posterColor: item.posterColor,
       tmdbId:      item.tmdbId,
+      overview:    item.overview,
+      voteAverage: item.voteAverage,
+      backdropUrl: item.backdropUrl,
+      releaseDate: item.releaseDate,
     };
   }
 
@@ -259,9 +296,7 @@ export function CalibrationModal({ onComplete, onDismiss, excludeIds = [], catal
           <div className={`calib-card calib-card-behind ${exiting ? 'calib-card-promoting' : ''}`}>
             {nextPoster
               ? <img src={nextPoster} className="calib-poster" alt="" draggable={false} />
-              : <div className="calib-poster-fallback" style={{ background: nextItem.posterColor }}>
-                  <span className="calib-poster-emoji">{nextItem.posterEmoji}</span>
-                </div>
+              : <div className="calib-poster-fallback" style={{ background: nextItem.posterColor }} />
             }
             <div className="calib-card-gradient" />
             <div className="calib-card-info">
@@ -282,11 +317,7 @@ export function CalibrationModal({ onComplete, onDismiss, excludeIds = [], catal
           {/* Poster */}
           {currentPoster
             ? <img src={currentPoster} className="calib-poster" alt={item.title} draggable={false} />
-            : <div className="calib-poster-fallback" style={{ background: item.posterColor }}>
-                <span className={`calib-poster-emoji ${TMDB_KEY ? 'calib-poster-loading' : ''}`}>
-                  {item.posterEmoji}
-                </span>
-              </div>
+            : <div className="calib-poster-fallback calib-poster-loading" style={{ background: item.posterColor }} />
           }
 
           <div className="calib-card-gradient" />
