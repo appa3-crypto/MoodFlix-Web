@@ -2,26 +2,34 @@ import { useState, useEffect, useRef } from 'react';
 import type { ScoredRecommendation, WatchPlan } from '../types';
 import { PosterImage } from './PosterImage';
 
+const IS_DEV = import.meta.env.DEV;
+
 interface Props {
   items:          ScoredRecommendation[];
+  aiUsed?:        boolean;
   onConfirm:      (plan: WatchPlan) => void;
   onDismiss:      () => void;
-  canRelaunch:    boolean;  // from freemium hook
+  canRelaunch:    boolean;
   onNeedPremium:  () => void;
 }
 
 type Phase = 'spinning' | 'result';
 
-export function ChooseForMeModal({ items, onConfirm, onDismiss, canRelaunch, onNeedPremium }: Props) {
+export function ChooseForMeModal({ items, aiUsed = false, onConfirm, onDismiss, canRelaunch, onNeedPremium }: Props) {
   const [phase,       setPhase]       = useState<Phase>('spinning');
   const [displayIdx,  setDisplayIdx]  = useState(0);
   const [chosen,      setChosen]      = useState<ScoredRecommendation | null>(null);
   const [usedIds,     setUsedIds]     = useState<number[]>([]);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Pick the best item with slight top-weighted randomness
+  // Sélection du meilleur item :
+  // 1. Si l'IA a classé → prend aiRank:1
+  // 2. Sinon → top-weighted random parmi les 60% meilleurs scores
   function pickBest(pool: ScoredRecommendation[]): ScoredRecommendation {
-    const sorted = [...pool].sort((a, b) => b.score - a.score);
+    const aiPick = pool.find(i => i.aiRank === 1);
+    if (aiPick) return aiPick;
+
+    const sorted = [...pool].sort((a, b) => (b.aiRank !== undefined ? -1 : b.score) - (a.aiRank !== undefined ? -1 : a.score));
     const topN   = sorted.slice(0, Math.max(1, Math.ceil(sorted.length * 0.6)));
     return topN[Math.floor(Math.random() * topN.length)] ?? sorted[0];
   }
@@ -121,7 +129,12 @@ export function ChooseForMeModal({ items, onConfirm, onDismiss, canRelaunch, onN
         {/* ── RESULT ── */}
         {phase === 'result' && chosen && (
           <div className="cfm-result-phase">
-            <p className="cfm-result-eyebrow">Ce soir tu regardes</p>
+            <div className="cfm-result-eyebrow-row">
+              <p className="cfm-result-eyebrow">Ce soir tu regardes</p>
+              {aiUsed && chosen.aiRank === 1 && (
+                <span className="cfm-ai-badge">✦ choix IA</span>
+              )}
+            </div>
 
             <div className="cfm-result-poster" style={{ background: chosen.posterColor }}>
               {chosen.posterUrl
@@ -147,13 +160,28 @@ export function ChooseForMeModal({ items, onConfirm, onDismiss, canRelaunch, onN
               </div>
             )}
 
-            {chosen.overview || chosen.shortReason ? (
+            {/* Raison IA personnalisée (si disponible) — prioritaire sur overview générique */}
+            {chosen.aiReason ? (
+              <p className="cfm-reason cfm-reason-ai">
+                🤖 {chosen.aiReason}
+              </p>
+            ) : (chosen.overview || chosen.shortReason) ? (
               <p className="cfm-reason">
                 ✨ {chosen.overview
                   ? (chosen.overview.length > 120 ? chosen.overview.slice(0, 117) + '…' : chosen.overview)
                   : chosen.shortReason}
               </p>
             ) : null}
+
+            {/* Debug DEV */}
+            {IS_DEV && (
+              <div className="cfm-debug">
+                <span>IA : {aiUsed ? `✅ (aiRank:${chosen.aiRank ?? '–'})` : '❌ fallback local'}</span>
+                <span>score local : {chosen.score}</span>
+                <span>localRank : #{chosen.localRank ?? '–'}</span>
+                <span>intent : {chosen.recommendationIntent ?? '–'}</span>
+              </div>
+            )}
 
             <div className="cfm-actions">
               <button className="cfm-btn-confirm" onClick={handleConfirm}>

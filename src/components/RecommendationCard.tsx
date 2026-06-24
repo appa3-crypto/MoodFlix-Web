@@ -313,23 +313,33 @@ export function RecommendationCard({ item, rank, profile, mood, onAction, onUndo
 
         {IS_DEV && (
           <div className="debug-score-overlay">
+            {/* Rang local → rang IA */}
+            <span className="debug-score-tag" style={{ fontWeight: 700, fontSize: '11px' }}>
+              {item.localRank !== undefined && item.aiRank !== undefined
+                ? `local:#${item.localRank} → IA:#${item.aiRank}${item.localRank !== item.aiRank ? ' ↕' : ' ='}`
+                : item.localRank !== undefined
+                  ? `local:#${item.localRank} (sans IA)`
+                  : `#${rank}`}
+            </span>
+            {/* Mood match */}
             <span className={`debug-mood-tag ${mood && item.moods.includes(mood) ? 'debug-mood-ok' : 'debug-mood-miss'}`}>
-              {mood && item.moods.includes(mood) ? `✓ ${mood}` : `✗ ${mood ?? '–'} (${item.moods.join('/')})`}
+              {mood && item.moods.includes(mood) ? `✓ ${mood}` : `✗ ${mood ?? '–'}`}
             </span>
-            <span className="debug-score-tag" style={{ fontWeight: 700 }}>
-              score: {item.score}
-              {item.aiRank !== undefined && ` | IA:#${item.aiRank}`}
-            </span>
-            <span className="debug-score-tag">😂{item.humorScore} 😱{item.fearScore} 🥺{item.emotionScore}</span>
-            <span className="debug-score-tag">🌀{item.mysteryScore} 🧠{item.complexityScore}</span>
+            {/* Score local */}
+            <span className="debug-score-tag">score: {item.score}</span>
+            {/* Scores internes */}
+            <span className="debug-score-tag">😂{item.humorScore} 😱{item.fearScore} 🥺{item.emotionScore} 🌀{item.mysteryScore} 🧠{item.complexityScore}</span>
+            {/* Intent */}
             {item.recommendationIntent && (
               <span className="debug-score-tag" style={{ color: '#fbbf24' }}>{item.recommendationIntent}</span>
             )}
+            {/* Raison IA */}
             {item.aiReason && (
-              <span className="debug-score-tag" style={{ color: '#34d399', maxWidth: '100%', whiteSpace: 'normal' }}>
-                IA: {item.aiReason}
+              <span className="debug-score-tag" style={{ color: '#34d399', maxWidth: '100%', whiteSpace: 'normal', lineHeight: '1.3' }}>
+                🤖 {item.aiReason}
               </span>
             )}
+            {/* Badges */}
             {item.isDiscovery && <span className="debug-score-tag" style={{ color: '#60a5fa' }}>🔍 discovery</span>}
             {item.fromTMDB   && <span className="debug-score-tag" style={{ color: '#a78bfa' }}>TMDB</span>}
           </div>

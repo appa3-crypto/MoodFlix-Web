@@ -30,7 +30,7 @@ import { PaywallModal } from './components/PaywallModal';
 import { OnboardingScreen } from './components/OnboardingScreen';
 import { useUserProfile } from './hooks/useUserProfile';
 import { useFreemium } from './hooks/useFreemium';
-import { getTopRecommendations, getQuickRecommendations, getHiddenGem, reRankWithAI } from './utils/recommendationEngine';
+import { getTopRecommendations, getQuickRecommendations, getHiddenGem, reRankWithAI, inferChoicesFromProfile } from './utils/recommendationEngine';
 import { discoverContent, enrichItem } from './services/tmdbService';
 import { track } from './utils/analytics';
 import type { ScoredRecommendation, CalibResult, WatchPlan } from './types';
@@ -39,6 +39,9 @@ import calibrationData from './data/calibration.json';
 
 // Curated catalog + calibration items (calibration items contribute to tag similarity)
 const ALL_ITEMS = [...rawData as Recommendation[], ...calibrationData as Recommendation[]];
+
+// Compile-time flag — set VITE_AI_RANKING_ENABLED=true in Vercel (requires redeploy)
+const AI_RANKING_ENABLED = import.meta.env.VITE_AI_RANKING_ENABLED === 'true';
 
 const INITIAL_CHOICES: UserChoices = {
   mood: null,
@@ -98,6 +101,8 @@ export default function App() {
   const [showCalibration,  setShowCalibration]  = useState(false);
   const [showChooseForMe,  setShowChooseForMe]  = useState(false);
   const [cfmItems,         setCfmItems]         = useState<ScoredRecommendation[]>([]);
+  const [cfmLoading,       setCfmLoading]       = useState(false);
+  const [cfmAIUsed,        setCfmAIUsed]        = useState(false);
   const [showCouple,       setShowCouple]       = useState(false);
   const [showPaywall,      setShowPaywall]      = useState(false);
   const [paywallFeature,   setPaywallFeature]   = useState('');
@@ -109,8 +114,6 @@ export default function App() {
       setAnimating(false);
     }, 200);
   }, []);
-
-  const AI_RANKING_ENABLED = import.meta.env.VITE_AI_RANKING_ENABLED === 'true';
 
   // ── CORE SEARCH ENGINE ──
   async function triggerSearch(currentChoices: UserChoices) {
@@ -265,18 +268,28 @@ export default function App() {
       const newExcluded = [...excludedIds, ...results.map(r => r.id)];
       setExcludedIds(newExcluded);
       const allItems = [...ALL_ITEMS, ...tmdbPool];
-      const tops = getTopRecommendations(allItems, choices, profile, 3, newExcluded);
-      setResults(tops);
-      if (tops.length > 0) {
+
+      const candidateCount = AI_RANKING_ENABLED ? 8 : 3;
+      let tops = getTopRecommendations(allItems, choices, profile, candidateCount, newExcluded);
+      setResults(tops.slice(0, 3));
+
+      if (AI_RANKING_ENABLED && tops.length >= 3) {
+        const reRanked = await reRankWithAI(tops, choices, profile);
+        tops = reRanked;
+        setResults(reRanked.slice(0, 3));
+      }
+
+      const finalTop3 = tops.slice(0, 3);
+      if (finalTop3.length > 0) {
         recordRecommendedHistory(
-          tops.map(item => ({
+          finalTop3.map(item => ({
             itemId: item.id, title: item.title,
             date: new Date().toISOString(), mood: choices.mood,
           }))
         );
       }
       const enriched = await Promise.all(
-        tops.map(item => enrichItem(item).then(e => ({ ...item, ...e })))
+        finalTop3.map(item => enrichItem(item).then(e => ({ ...item, ...e })))
       );
       setResults(enriched as ScoredRecommendation[]);
     }
@@ -341,35 +354,60 @@ export default function App() {
   }
 
   // ── CHOISIS POUR MOI ──
-  function handleChooseForMe() {
+  async function handleChooseForMe() {
+    if (cfmLoading) return;
     if (!freemium.canUse('chooseForMe')) {
       handleNeedPremium('"Choisis pour moi" illimité');
       return;
     }
     freemium.consume('chooseForMe');
-    track('choose_for_me_used', { hasResults: results.length > 0 });
+    setCfmAIUsed(false);
 
-    // Build pool: use search results if available, otherwise generate from full catalog
-    let pool: ScoredRecommendation[];
+    // CHEMIN 1 — Résultats de recherche déjà présents (déjà potentiellement AI-ranked)
     if (results.length > 0) {
-      pool = [...results, ...(hiddenGem ? [hiddenGem] : [])];
-    } else if (profile) {
-      const generated = getTopRecommendations(
-        ALL_ITEMS,
-        { mood: null, type: profile.preferredType, duration: profile.preferredDuration, platforms: profile.preferredPlatforms, references: '' },
-        profile,
-        15,
-        [],
-      );
-      pool = generated.length > 0
-        ? generated
-        : (ALL_ITEMS as Recommendation[]).map(i => ({ ...i, score: 1 }) as ScoredRecommendation);
-    } else {
-      pool = (ALL_ITEMS as Recommendation[]).map(i => ({ ...i, score: 1 }) as ScoredRecommendation);
+      const pool = [...results, ...(hiddenGem ? [hiddenGem] : [])];
+      track('choose_for_me_used', { hasResults: true, aiEnabled: false });
+      setCfmItems(pool);
+      setShowChooseForMe(true);
+      return;
     }
 
-    setCfmItems(pool);
-    setShowChooseForMe(true);
+    // CHEMIN 2 — Génération fraîche depuis le catalogue complet
+    setCfmLoading(true);
+    track('choose_for_me_used', { hasResults: false, aiEnabled: AI_RANKING_ENABLED });
+
+    try {
+      // Construire les choices intelligentes depuis le profil
+      const implicitChoices = profile
+        ? inferChoicesFromProfile(profile)
+        : { mood: null, type: null, duration: null, platforms: [], references: '', isAutoChoice: true as const };
+
+      // Plus de candidats si l'IA est activée (elle choisit parmi les meilleurs)
+      const candidateCount = AI_RANKING_ENABLED ? 10 : 15;
+      let candidates = getTopRecommendations(ALL_ITEMS, implicitChoices, profile, candidateCount, []);
+
+      if (candidates.length === 0) {
+        candidates = (ALL_ITEMS as Recommendation[]).map(i => ({ ...i, score: 1, localRank: 1 }) as ScoredRecommendation);
+      }
+
+      // Re-ranking IA si activé
+      if (AI_RANKING_ENABLED && candidates.length >= 3) {
+        const reRanked = await reRankWithAI(candidates, implicitChoices, profile);
+        candidates = reRanked;
+        setCfmAIUsed(true);
+        track('ai_ranking_applied', { mood: implicitChoices.mood ?? undefined, count: candidates.length });
+      }
+
+      // Enrichir les 5 premiers avec de vraies affiches (rapide, en parallèle)
+      const top5     = candidates.slice(0, 5);
+      const enriched = await Promise.all(top5.map(item => enrichItem(item).then(e => ({ ...item, ...e }))));
+      const pool     = [...enriched as ScoredRecommendation[], ...candidates.slice(5)];
+
+      setCfmItems(pool);
+      setShowChooseForMe(true);
+    } finally {
+      setCfmLoading(false);
+    }
   }
 
   function handleChooseConfirm(plan: WatchPlan) {
@@ -567,12 +605,15 @@ export default function App() {
               {(() => {
                 const cfmRem = freemium.isPremium ? null : freemium.getRemainingUses('chooseForMe');
                 return (
-                  <button className="btn-cfm-home" onClick={handleChooseForMe}>
-                    🎲 Choisis pour moi
-                    {cfmRem !== null && (
+                  <button className="btn-cfm-home" onClick={handleChooseForMe} disabled={cfmLoading}>
+                    {cfmLoading ? '🔮 Analyse en cours…' : '🎲 Choisis pour moi'}
+                    {!cfmLoading && cfmRem !== null && (
                       <span className="btn-cfm-tag">
                         {cfmRem > 0 ? `${cfmRem}/1 gratuit` : '🔒'}
                       </span>
+                    )}
+                    {!cfmLoading && cfmAIUsed && (
+                      <span className="btn-cfm-tag" style={{ background: 'rgba(167,139,250,0.25)', color: '#a78bfa' }}>IA</span>
                     )}
                   </button>
                 );
@@ -791,8 +832,9 @@ export default function App() {
       {showChooseForMe && cfmItems.length > 0 && (
         <ChooseForMeModal
           items={cfmItems}
+          aiUsed={cfmAIUsed}
           onConfirm={handleChooseConfirm}
-          onDismiss={() => { setShowChooseForMe(false); setCfmItems([]); }}
+          onDismiss={() => { setShowChooseForMe(false); setCfmItems([]); setCfmAIUsed(false); }}
           canRelaunch={freemium.canUse('relaunches')}
           onNeedPremium={() => handleNeedPremium('Relances illimitées')}
         />

@@ -14,6 +14,7 @@ export interface UserChoices {
   duration: Duration | null;
   platforms: Platform[];
   references: string;
+  isAutoChoice?: boolean;
 }
 
 export interface Recommendation {
@@ -49,6 +50,7 @@ export interface ScoredRecommendation extends Recommendation {
   score: number;
   isDiscovery?: boolean;
   recommendationIntent?: string;
+  localRank?: number;
   aiRank?: number;
   aiReason?: string;
 }

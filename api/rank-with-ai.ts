@@ -19,12 +19,13 @@ interface Candidate {
 }
 
 interface RankBody {
-  mood:       string;
-  moodLabel:  string;
-  type:       string;
-  duration:   string;
-  platforms:  string[];
-  candidates: Candidate[];
+  mood:         string;
+  moodLabel:    string;
+  type:         string;
+  duration:     string;
+  platforms:    string[];
+  isAutoChoice: boolean;
+  candidates:   Candidate[];
   profile: {
     pseudo:             string;
     topMoods:           string[];
@@ -57,6 +58,44 @@ function buildPrompt(b: RankBody): string {
    Synopsis : ${c.synopsis.slice(0, 150)}`
   ).join('\n\n');
 
+  // Mode "Choisis pour moi" : instructions différentes (choix unique, explication personnelle)
+  if (b.isAutoChoice) {
+    return `Tu es MoodFlix IA, un expert cinéma et séries.
+${pseudo} te demande de CHOISIR pour lui ce soir — il ne veut pas chercher.
+
+PROFIL DE ${pseudo} :
+${profileSection}
+
+CANDIDATS DISPONIBLES (${b.candidates.length} options) :
+${candidatesSection}
+
+MODE : CHOIX AUTOMATIQUE
+Tu dois choisir LE meilleur contenu pour ${pseudo} CE SOIR.
+Pas forcément le plus populaire — le plus pertinent pour son profil.
+
+RÈGLES :
+1. Priorise les genres et atmosphères des contenus qu'il a aimés.
+2. Évite absolument les contenus rejetés ou récemment vus.
+3. Si son humeur favorite est "${moodLabel}", favorise ce type de contenu.
+4. Équilibre originalité et sécurité : ne propose pas quelque chose qu'il risque de détester.
+5. La raison doit être personnalisée : explique POURQUOI C'EST LE BON CHOIX CE SOIR pour ${pseudo}.
+   Exemple : "Tu aimes les thrillers complexes — celui-ci a exactement ce twist surprenant que tu recherches."
+   Pas : "Ce film est très bien noté."
+
+Réponds UNIQUEMENT en JSON valide :
+{
+  "rankedIds": [id_premier_choix, id_second_choix, ...],
+  "reasons": {
+    "id_premier_choix": "raison personnalisée courte max 100 chars",
+    "id_second_choix": "raison courte"
+  }
+}
+
+Les IDs doivent correspondre exactement aux IDs des candidats.
+Le premier ID est ton meilleur choix pour ${pseudo}.`;
+  }
+
+  // Mode normal : re-ranking avec humeur précise
   return `Tu es MoodFlix IA, un expert cinéma et séries.
 Tu dois choisir et ordonner les meilleurs contenus pour ${pseudo}.
 

@@ -1,4 +1,4 @@
-import type { UserChoices, Recommendation, ScoredRecommendation, UserProfile, QuickVibe } from '../types';
+import type { UserChoices, Recommendation, ScoredRecommendation, UserProfile, QuickVibe, Mood, ContentType } from '../types';
 
 // ── DEBUG ────────────────────────────────────────────────────────────────────
 const DEBUG = import.meta.env.DEV;
@@ -597,12 +597,13 @@ export interface AIRankingCandidate {
 }
 
 export interface AIRankingContext {
-  mood:       string;
-  moodLabel:  string;
-  type:       string;
-  duration:   string;
-  platforms:  string[];
-  candidates: AIRankingCandidate[];
+  mood:         string;
+  moodLabel:    string;
+  type:         string;
+  duration:     string;
+  platforms:    string[];
+  isAutoChoice: boolean;
+  candidates:   AIRankingCandidate[];
   profile: {
     pseudo:         string;
     topMoods:       string[];
@@ -640,11 +641,12 @@ export function buildAIPrompt(
     .flatMap(e => e.reasons).filter((r, i, a) => a.indexOf(r) === i);
 
   return {
-    mood:      choices.mood ?? 'unknown',
-    moodLabel: choices.mood ? (MOOD_LABELS_FR[choices.mood] ?? choices.mood) : 'non précisée',
-    type:      choices.type ?? 'both',
-    duration:  choices.duration ?? 'all',
-    platforms: choices.platforms,
+    mood:         choices.mood ?? 'unknown',
+    moodLabel:    choices.mood ? (MOOD_LABELS_FR[choices.mood] ?? choices.mood) : 'non précisée',
+    type:         choices.type ?? 'both',
+    duration:     choices.duration ?? 'all',
+    platforms:    choices.platforms,
+    isAutoChoice: choices.isAutoChoice ?? false,
     candidates: candidates.slice(0, 10).map(c => ({
       id:     c.id,
       title:  c.title,
@@ -686,6 +688,16 @@ export async function reRankWithAI(
 ): Promise<ScoredRecommendation[]> {
   if (candidates.length === 0) return candidates;
 
+  if (DEBUG) {
+    console.log(
+      `%c[MoodFlix AI] 🟢 AI ranking ENABLED — ${candidates.length} candidats → /api/rank-with-ai`,
+      'color:#a78bfa;font-weight:bold',
+    );
+    console.table(candidates.slice(0, 8).map(c => ({
+      localRank: c.localRank, titre: c.title, score: c.score, intent: c.recommendationIntent,
+    })));
+  }
+
   const context = buildAIPrompt(candidates, choices, profile);
 
   const aiCall = fetch('/api/rank-with-ai', {
@@ -700,6 +712,7 @@ export async function reRankWithAI(
   );
 
   try {
+    if (DEBUG) console.log('%c[MoodFlix AI] ⏳ Requête envoyée…', 'color:#fbbf24');
     const res = await Promise.race([aiCall, timeoutPromise]);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
@@ -708,6 +721,12 @@ export async function reRankWithAI(
 
     const reasons = data.reasons ?? {};
 
+    if (DEBUG) {
+      console.log('%c[MoodFlix AI] ✅ Réponse reçue', 'color:#34d399;font-weight:bold');
+      console.log('  rankedIds:', data.rankedIds);
+      console.log('  reasons:', reasons);
+    }
+
     const reordered: ScoredRecommendation[] = [];
     for (let idx = 0; idx < data.rankedIds.length; idx++) {
       const id   = data.rankedIds[idx];
@@ -715,15 +734,51 @@ export async function reRankWithAI(
       if (item) reordered.push({ ...item, aiRank: idx + 1, aiReason: reasons[String(id)] ?? '' });
     }
 
+    if (DEBUG) {
+      console.log('%c[MoodFlix AI] 🏆 Classement final (après IA)', 'color:#34d399');
+      console.table(reordered.slice(0, 5).map(c => ({
+        aiRank: c.aiRank, localRank: c.localRank, titre: c.title, raison: c.aiReason,
+      })));
+    }
+
     // Ajoute les candidats non classés par l'IA (dans leur ordre local)
     const rankedSet = new Set(data.rankedIds);
     const unranked  = candidates.filter(c => !rankedSet.has(c.id));
 
     return [...reordered, ...unranked];
-  } catch {
+  } catch (err) {
+    const isTimeout = (err as Error)?.message === 'ai_timeout';
+    if (DEBUG) {
+      console.warn(
+        `%c[MoodFlix AI] ⚠️ Fallback local — ${isTimeout ? 'timeout (>3s)' : (err as Error)?.message}`,
+        'color:#f87171;font-weight:bold',
+      );
+    }
     // Fallback silencieux : ordre local inchangé
     return candidates;
   }
+}
+
+// ── INFER CHOICES FROM PROFILE ───────────────────────────────────────────────
+// Construit des UserChoices intelligentes depuis le profil pour "Choisis pour moi".
+// Priorité : humeur la plus fréquente → type et durée préférés → plateformes.
+
+export function inferChoicesFromProfile(profile: UserProfile): UserChoices & { isAutoChoice: true } {
+  const moodEntries = Object.entries(profile.frequentMoods) as [Mood, number][];
+  const topMood = moodEntries.sort(([, a], [, b]) => b - a)[0]?.[0] ?? null;
+
+  const prefType = profile.preferredType === 'both'
+    ? (null as ContentType | null)
+    : profile.preferredType;
+
+  return {
+    mood:      topMood,
+    type:      prefType,
+    duration:  profile.preferredDuration,
+    platforms: profile.preferredPlatforms.length > 0 ? profile.preferredPlatforms : [],
+    references: '',
+    isAutoChoice: true as const,
+  };
 }
 
 // ── NOISE ────────────────────────────────────────────────────────────────────
@@ -785,7 +840,7 @@ export function getTopRecommendations(
 
   if (DEBUG) console.debug(`[MoodFlix] ${candidates.length} candidats après filtres durs`);
 
-  // Scoring + intent
+  // Scoring + intent + rang local (avant tout re-ranking IA)
   const scored = candidates
     .map(item => ({
       ...item,
@@ -795,7 +850,8 @@ export function getTopRecommendations(
     .sort((a, b) => {
       const diff = b.score - a.score;
       return Math.abs(diff) < 8 ? diff + noise() : diff;
-    });
+    })
+    .map((item, idx) => ({ ...item, localRank: idx + 1 }));
 
   // PASS 1 : items avec score positif (humeur correspondante + critères ok)
   const strong = scored.filter(item => item.score > 0);
@@ -874,6 +930,8 @@ const VIBE_MOODS: Record<QuickVibe, string[]> = {
   surprising: ['mind-bending', 'surprised'],
 };
 
+// TODO (quick mode IA) : passer getQuickRecommendations par reRankWithAI quand VITE_AI_RANKING_ENABLED=true.
+// Actuellement 100% local. Implémenter avec 6 candidats → reRankWithAI → top 3 affiché.
 export function getQuickRecommendations(
   items: Recommendation[],
   type: 'movie' | 'series' | 'both',
