@@ -6,7 +6,7 @@ export interface DetailItem {
   id:          number;
   meta:        ItemMeta;
   fullItem?:   Recommendation;
-  listKey:     'want' | 'liked' | 'seen' | 'disliked' | 'abandoned';
+  listKey:     'want' | 'liked' | 'seen' | 'vus' | 'disliked' | 'abandoned';
 }
 
 interface Props {

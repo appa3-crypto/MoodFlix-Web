@@ -121,6 +121,13 @@ export async function getPosterByTmdbId(tmdbId: number, isTV: boolean): Promise<
   return data?.poster_path ? `https://image.tmdb.org/t/p/w342${data.poster_path}` : null;
 }
 
+export async function getPosterByTitle(title: string): Promise<string | null> {
+  const result = await searchTitle(title);
+  return result?.poster_path
+    ? `https://image.tmdb.org/t/p/w342${result.poster_path}`
+    : null;
+}
+
 // ── DISCOVER ─────────────────────────────────────────────────────────────────
 
 const DURATION_PARAMS: Record<string, Record<string, string>> = {

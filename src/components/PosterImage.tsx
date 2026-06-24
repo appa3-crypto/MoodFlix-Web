@@ -10,6 +10,7 @@ interface Props {
   objectFit?:       'cover' | 'contain';
   objectPosition?:  string;
   style?:           React.CSSProperties;
+  loading?:         boolean;
 }
 
 /**
@@ -26,6 +27,7 @@ export function PosterImage({
   objectFit = 'cover',
   objectPosition = 'center top',
   style,
+  loading = false,
 }: Props) {
   const [status, setStatus]   = useState<'loading' | 'loaded' | 'error'>('loading');
   const [visible, setVisible] = useState(false);
@@ -50,8 +52,8 @@ export function PosterImage({
     return () => observer.disconnect();
   }, []);
 
-  const showSkeleton = !!src && status === 'loading' && visible;
-  const showFallback = !src || status === 'error';
+  const showSkeleton = (!!src && status === 'loading' && visible) || (!src && loading);
+  const showFallback = (!src && !loading) || status === 'error';
 
   return (
     <div

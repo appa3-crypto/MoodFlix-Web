@@ -294,10 +294,18 @@ export function CalibrationModal({ onComplete, onDismiss, excludeIds = [], catal
         {/* Background card (next) */}
         {nextItem && (
           <div className={`calib-card calib-card-behind ${exiting ? 'calib-card-promoting' : ''}`}>
-            {nextPoster
-              ? <img src={nextPoster} className="calib-poster" alt="" draggable={false} />
-              : <div className="calib-poster-fallback" style={{ background: nextItem.posterColor }} />
-            }
+            <div className="calib-poster-fallback" style={{ background: nextItem.posterColor }} />
+            {nextPoster && (
+              <img
+                src={nextPoster}
+                className="calib-poster"
+                alt=""
+                draggable={false}
+                style={{ opacity: 0, transition: 'opacity 0.25s' }}
+                onLoad={e => { e.currentTarget.style.opacity = '1'; }}
+                ref={el => { if (el?.complete && el.naturalWidth > 0) el.style.opacity = '1'; }}
+              />
+            )}
             <div className="calib-card-gradient" />
             <div className="calib-card-info">
               <p className="calib-card-title">{nextItem.title}</p>
@@ -314,11 +322,19 @@ export function CalibrationModal({ onComplete, onDismiss, excludeIds = [], catal
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
         >
-          {/* Poster */}
-          {currentPoster
-            ? <img src={currentPoster} className="calib-poster" alt={item.title} draggable={false} />
-            : <div className="calib-poster-fallback calib-poster-loading" style={{ background: item.posterColor }} />
-          }
+          {/* Poster — colored bg always visible, image fades in on load */}
+          <div className="calib-poster-fallback" style={{ background: item.posterColor }} />
+          {currentPoster && (
+            <img
+              src={currentPoster}
+              className="calib-poster"
+              alt={item.title}
+              draggable={false}
+              style={{ opacity: 0, transition: 'opacity 0.25s' }}
+              onLoad={e => { e.currentTarget.style.opacity = '1'; }}
+              ref={el => { if (el?.complete && el.naturalWidth > 0) el.style.opacity = '1'; }}
+            />
+          )}
 
           <div className="calib-card-gradient" />
 

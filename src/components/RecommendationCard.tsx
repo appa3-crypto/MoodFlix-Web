@@ -190,9 +190,13 @@ export function RecommendationCard({ item, rank, profile, mood, onAction, onUndo
         {/* Bottom: title + compat + meta */}
         <div className="card-hero-info">
           <h3 className="card-title">{item.title}</h3>
-          {compat.total >= 60 && profile && (
-            <div className="card-compat-row" role="note" aria-label={`Compatibilité ${compat.total}%`}>
-              🔥 Compatibilité {compat.total}%
+          {profile && compat.total >= 30 && (
+            <div
+              className={`card-compat-row ${compat.total >= 80 ? 'compat-high' : compat.total >= 60 ? 'compat-mid' : 'compat-low'}`}
+              role="note"
+              aria-label={`Compatibilité ${compat.total}%`}
+            >
+              {compat.total >= 80 ? '🔥' : compat.total >= 60 ? '✨' : '·'} Match {compat.total}%
             </div>
           )}
           <div className="card-tags-row">

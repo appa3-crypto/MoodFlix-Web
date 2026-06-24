@@ -5,17 +5,18 @@ import { PosterImage } from './PosterImage';
 const IS_DEV = import.meta.env.DEV;
 
 interface Props {
-  items:          ScoredRecommendation[];
-  aiUsed?:        boolean;
-  onConfirm:      (plan: WatchPlan) => void;
-  onDismiss:      () => void;
-  canRelaunch:    boolean;
-  onNeedPremium:  () => void;
+  items:           ScoredRecommendation[];
+  aiUsed?:         boolean;
+  onConfirm:       (plan: WatchPlan) => void;
+  onSeenAndLiked?: (itemId: number) => void;
+  onDismiss:       () => void;
+  canRelaunch:     boolean;
+  onNeedPremium:   () => void;
 }
 
 type Phase = 'spinning' | 'result';
 
-export function ChooseForMeModal({ items, aiUsed = false, onConfirm, onDismiss, canRelaunch, onNeedPremium }: Props) {
+export function ChooseForMeModal({ items, aiUsed = false, onConfirm, onSeenAndLiked, onDismiss, canRelaunch, onNeedPremium }: Props) {
   const [phase,       setPhase]       = useState<Phase>('spinning');
   const [displayIdx,  setDisplayIdx]  = useState(0);
   const [chosen,      setChosen]      = useState<ScoredRecommendation | null>(null);
@@ -187,6 +188,14 @@ export function ChooseForMeModal({ items, aiUsed = false, onConfirm, onDismiss, 
               <button className="cfm-btn-confirm" onClick={handleConfirm}>
                 ✅ OK je regarde
               </button>
+              {onSeenAndLiked && chosen && (
+                <button
+                  className="cfm-btn-seen-liked"
+                  onClick={() => onSeenAndLiked(chosen.id)}
+                >
+                  ❤️ Déjà vu et aimé
+                </button>
+              )}
               <div className="cfm-secondary-actions">
                 <button
                   className={`cfm-btn-relaunch ${!canRelaunch ? 'cfm-btn-locked' : ''}`}

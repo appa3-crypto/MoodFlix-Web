@@ -15,6 +15,7 @@ interface Props {
   onSuggestOther: () => void;
   onChooseForMe?: () => void;
   onQuickMode?:   () => void;
+  onShare?:       () => void;
 }
 
 const MOOD_LABELS: Record<string, string> = {
@@ -40,6 +41,7 @@ export function ResultsPage({
   onSuggestOther,
   onChooseForMe,
   onQuickMode,
+  onShare,
 }: Props) {
   const mood: Mood | null = choices.mood;
   const moodLabel         = mood ? MOOD_LABELS[mood] : null;
@@ -151,6 +153,11 @@ export function ResultsPage({
         {hasResults && (
           <button className="btn-suggest-other" onClick={onSuggestOther}>
             🔀 Me proposer autre chose
+          </button>
+        )}
+        {hasResults && onShare && (
+          <button className="btn-share-mood" onClick={onShare}>
+            📤 Partager cette recherche
           </button>
         )}
         <button className="btn-restart" onClick={onRestart}>

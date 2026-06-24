@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type {
   Step,
   UserChoices,
@@ -102,6 +102,7 @@ export default function App() {
     updateSettings,
     moveToSeen,
     removeFromList,
+    markSeenAndLiked,
   } = useUserProfile();
 
   const freemium = useFreemium();
@@ -125,6 +126,22 @@ export default function App() {
   const [onboardingDone,   setOnboardingDone]   = useState<boolean>(() => {
     try { return localStorage.getItem('moodflix_onboarding_done') === 'true'; } catch { return false; }
   });
+
+  // Lecture des params URL pour le partage d'humeur (ex: ?mood=laugh&type=movie)
+  const [pendingAutoSearch] = useState<UserChoices | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const mood = params.get('mood') as Mood | null;
+    if (!mood) return null;
+    window.history.replaceState({}, '', window.location.pathname);
+    return {
+      mood,
+      type: (params.get('type') as ContentType | null) ?? 'both',
+      duration: params.get('dur') as Duration | null,
+      platforms: [],
+      references: '',
+    };
+  });
+  const autoSearchDone = useRef(false);
   const [showCalibration,  setShowCalibration]  = useState(false);
   const [showChooseForMe,  setShowChooseForMe]  = useState(false);
   const [cfmItems,         setCfmItems]         = useState<ScoredRecommendation[]>([]);
@@ -141,6 +158,19 @@ export default function App() {
       setAnimating(false);
     }, 200);
   }, []);
+
+  // Auto-lance une recherche depuis un lien partagé (?mood=laugh...)
+  useEffect(() => {
+    if (isLoading || !profile || !pendingAutoSearch || autoSearchDone.current) return;
+    autoSearchDone.current = true;
+    const autoChoices: UserChoices = {
+      ...pendingAutoSearch,
+      platforms: profile.preferredPlatforms.length > 0 ? profile.preferredPlatforms : [],
+    };
+    setChoices(autoChoices);
+    triggerSearch(autoChoices);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading]);
 
   // ── CORE SEARCH ENGINE ──
   async function triggerSearch(currentChoices: UserChoices) {
@@ -556,6 +586,14 @@ export default function App() {
     setCfmItems([]);
   }
 
+  function handleCFMSeenAndLiked(itemId: number) {
+    const item = cfmItems.find(r => r.id === itemId);
+    markSeenAndLiked(itemId, item ? createItemSnapshot(item) : undefined);
+    setShowChooseForMe(false);
+    setCfmItems([]);
+    setCfmAIUsed(false);
+  }
+
   // ── WATCH REMINDER ──
   function handleWatched() {
     confirmWatched();
@@ -579,6 +617,20 @@ export default function App() {
     freemium.activatePremium();
     setShowPaywall(false);
     track('premium_activated');
+  }
+
+  // ── SHARE MOOD ──
+  function handleShare() {
+    const params = new URLSearchParams();
+    if (choices.mood) params.set('mood', choices.mood);
+    if (choices.type && choices.type !== 'both') params.set('type', choices.type);
+    if (choices.duration) params.set('dur', choices.duration);
+    const url = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+    if (navigator.share) {
+      navigator.share({ title: 'MoodFlix', text: 'Viens regarder quelque chose ce soir !', url }).catch(() => {});
+    } else {
+      navigator.clipboard?.writeText(url).catch(() => {});
+    }
   }
 
   // ── CARD ACTIONS ──
@@ -615,6 +667,15 @@ export default function App() {
   const interactionCount = profile
     ? profile.wantToWatchItems.length + profile.dislikedItems.length + profile.satisfactionLog.length
     : 0;
+
+  // Smart recalibration: show again every 15 films seen (window of 3 to avoid flicker)
+  const totalVus = profile
+    ? new Set([...profile.seenItems, ...profile.likedItems]).size
+    : 0;
+  const isNewUser = interactionCount < 5;
+  const vMilestone = Math.floor(totalVus / 15);
+  const needsRecalib = vMilestone >= 1 && (totalVus - vMilestone * 15) < 3;
+  const showCalibBtn = isNewUser || needsRecalib;
 
   if (isLoading) {
     return (
@@ -761,9 +822,13 @@ export default function App() {
                 </button>
               </div>
 
-              {interactionCount < 5 && (
+              {showCalibBtn && (
                 <button className="btn-home-calibrate" onClick={openCalibration} disabled={calibLoading}>
-                  {calibLoading ? '⏳ Chargement des films…' : '🎯 Calibrer mes goûts pour de meilleures recommandations'}
+                  {calibLoading
+                    ? '⏳ Chargement des films…'
+                    : isNewUser
+                      ? '🎯 Calibrer mes goûts pour de meilleures recommandations'
+                      : `🎯 ${totalVus} films vus — affine tes reco !`}
                 </button>
               )}
 
@@ -874,6 +939,7 @@ export default function App() {
             onSuggestOther={handleSuggestOther}
             onChooseForMe={handleChooseForMe}
             onQuickMode={startQuickMode}
+            onShare={choices.mood ? handleShare : undefined}
           />
         )}
 
@@ -956,6 +1022,7 @@ export default function App() {
           items={cfmItems}
           aiUsed={cfmAIUsed}
           onConfirm={handleChooseConfirm}
+          onSeenAndLiked={handleCFMSeenAndLiked}
           onDismiss={() => { setShowChooseForMe(false); setCfmItems([]); setCfmAIUsed(false); }}
           canRelaunch={freemium.canUse('relaunches')}
           onNeedPremium={() => handleNeedPremium('Relances illimitées')}

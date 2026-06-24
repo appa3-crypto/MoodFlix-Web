@@ -207,13 +207,32 @@ export function useUserProfile() {
     save(updated);
   }
 
+  // Mark item as both seen and liked (e.g. "J'ai déjà vu et aimé" in CFM)
+  function markSeenAndLiked(itemId: number, meta?: ItemMeta) {
+    if (!profile) return;
+    const updated = { ...profile };
+    updated.wantToWatchItems = updated.wantToWatchItems.filter(id => id !== itemId);
+    updated.dislikedItems    = updated.dislikedItems.filter(id => id !== itemId);
+    if (!updated.seenItems.includes(itemId))  updated.seenItems  = [...updated.seenItems, itemId];
+    if (!updated.likedItems.includes(itemId)) updated.likedItems = [...updated.likedItems, itemId];
+    const metaWithDate = meta
+      ? { ...meta, addedAt: meta.addedAt ?? new Date().toISOString() }
+      : undefined;
+    if (metaWithDate) updated.itemMetaStore = { ...updated.itemMetaStore, [itemId]: metaWithDate };
+    save(updated);
+  }
+
   // Remove an item from a specific list
-  function removeFromList(itemId: number, list: 'want' | 'liked' | 'seen' | 'disliked' | 'abandoned') {
+  function removeFromList(itemId: number, list: 'want' | 'liked' | 'seen' | 'vus' | 'disliked' | 'abandoned') {
     if (!profile) return;
     const updated = { ...profile };
     if (list === 'want')      updated.wantToWatchItems = updated.wantToWatchItems.filter(id => id !== itemId);
     if (list === 'liked')     updated.likedItems       = updated.likedItems.filter(id => id !== itemId);
     if (list === 'seen')      updated.seenItems        = updated.seenItems.filter(id => id !== itemId);
+    if (list === 'vus') {
+      updated.seenItems  = updated.seenItems.filter(id => id !== itemId);
+      updated.likedItems = updated.likedItems.filter(id => id !== itemId);
+    }
     if (list === 'disliked')  updated.dislikedItems    = updated.dislikedItems.filter(id => id !== itemId);
     if (list === 'abandoned') updated.abandonedItems   = (updated.abandonedItems ?? []).filter(id => id !== itemId);
     save(updated);
@@ -358,5 +377,6 @@ export function useUserProfile() {
     recordRecommendedHistory,
     batchCalibration,
     recordCalibrationSeen,
+    markSeenAndLiked,
   };
 }
