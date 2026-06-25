@@ -128,6 +128,42 @@ export async function getPosterByTitle(title: string): Promise<string | null> {
     : null;
 }
 
+interface VideoResult {
+  key: string;
+  site: string;
+  type: string;
+  official: boolean;
+  iso_639_1: string;
+}
+
+// Retourne la clé YouTube du meilleur trailer/teaser disponible
+export async function getTrailerKey(tmdbId: number, isTV: boolean): Promise<string | null> {
+  if (!API_KEY) return null;
+  const type = isTV ? 'tv' : 'movie';
+
+  function pickBest(results: VideoResult[]): VideoResult | null {
+    const yt = results.filter(v => v.site === 'YouTube');
+    return (
+      yt.find(v => v.type === 'Trailer' && v.official) ??
+      yt.find(v => v.type === 'Trailer') ??
+      yt.find(v => v.type === 'Teaser' && v.official) ??
+      yt.find(v => v.type === 'Teaser') ??
+      yt[0] ?? null
+    );
+  }
+
+  // 1ère tentative (fr) — TMDB renvoie tous les langages, paramètre language = tri metadata
+  const data = await fetchTMDB<{ results: VideoResult[] }>(`/${type}/${tmdbId}/videos`, {});
+  const pick = pickBest(data?.results ?? []);
+  if (pick) return pick.key;
+
+  // Fallback explicite anglais
+  const enData = await fetchTMDB<{ results: VideoResult[] }>(
+    `/${type}/${tmdbId}/videos`, { language: 'en-US' }
+  );
+  return pickBest(enData?.results ?? [])?.key ?? null;
+}
+
 // ── DISCOVER ─────────────────────────────────────────────────────────────────
 
 const DURATION_PARAMS: Record<string, Record<string, string>> = {

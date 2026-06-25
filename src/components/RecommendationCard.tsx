@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { ScoredRecommendation, SatisfactionRating, UserProfile, Mood, AIExplanation } from '../types';
 import { SatisfactionModal } from './SatisfactionModal';
+import { FilmDetailModal } from './FilmDetailModal';
 import { getAIExplanation } from '../services/aiExplanationService';
 import { computeCompatibility, compatibilityLabel } from '../utils/semanticMatching';
 import { track } from '../utils/analytics';
@@ -43,6 +44,7 @@ export function RecommendationCard({ item, rank, profile, mood, onAction, onUndo
 
   const [reaction,           setReaction]           = useState<Reaction>(getInitialReaction);
   const [showModal,          setShowModal]           = useState(false);
+  const [showDetail,         setShowDetail]          = useState(false);
   const [feedbackMsg,        setFeedbackMsg]         = useState<string | null>(null);
   const [explanation,        setExplanation]         = useState<AIExplanation | null>(null);
   const [loadingExplanation, setLoadingExplanation]  = useState(false);
@@ -222,7 +224,9 @@ export function RecommendationCard({ item, rank, profile, mood, onAction, onUndo
       <div className="card-body">
         <p className="card-atmosphere">
           {item.overview
-            ? (item.overview.length > 150 ? item.overview.slice(0, 147) + '…' : item.overview)
+            ? (item.overview.length > 150
+                ? <>{item.overview.slice(0, 147)}&hellip; <button className="card-read-more" onClick={() => setShowDetail(true)}>voir plus</button></>
+                : item.overview)
             : item.atmosphere}
         </p>
 
@@ -259,13 +263,18 @@ export function RecommendationCard({ item, rank, profile, mood, onAction, onUndo
           </div>
         </div>
 
-        <button
-          className={`btn-why ${loadingExplanation ? 'btn-why-loading' : ''} ${showExplanation && explanation ? 'btn-why-active' : ''}`}
-          onClick={handleWhyForMe}
-          disabled={loadingExplanation}
-        >
-          {loadingExplanation ? '⏳ Analyse en cours…' : showExplanation && explanation ? '🧠 Masquer l\'analyse' : '🧠 Pourquoi pour moi ?'}
-        </button>
+        <div className="card-detail-row">
+          <button className="btn-details" onClick={() => setShowDetail(true)}>
+            🎬 Détails & trailer
+          </button>
+          <button
+            className={`btn-why ${loadingExplanation ? 'btn-why-loading' : ''} ${showExplanation && explanation ? 'btn-why-active' : ''}`}
+            onClick={handleWhyForMe}
+            disabled={loadingExplanation}
+          >
+            {loadingExplanation ? '⏳…' : showExplanation && explanation ? '🧠 Masquer' : '🧠 Pourquoi ?'}
+          </button>
+        </div>
 
         {showExplanation && (
           <div className="ai-explanation-panel">
@@ -352,6 +361,22 @@ export function RecommendationCard({ item, rank, profile, mood, onAction, onUndo
 
       {showModal && (
         <SatisfactionModal item={item} onComplete={handleSatisfactionComplete} onDismiss={() => setShowModal(false)} />
+      )}
+
+      {showDetail && (
+        <FilmDetailModal
+          item={item}
+          profile={profile}
+          mood={mood}
+          reaction={reaction}
+          onAction={action => {
+            const next: Reaction = reaction === action ? null : action;
+            setReaction(next);
+            if (next) onAction(item.id, next);
+            else onUndo(item.id);
+          }}
+          onClose={() => setShowDetail(false)}
+        />
       )}
     </div>
   );
