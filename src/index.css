@@ -4346,6 +4346,7 @@ textarea {
   align-items: flex-end;
   justify-content: center;
   overflow: hidden;
+  touch-action: none;
   animation: fdm-fade-in 0.2s ease;
 }
 @media (min-width: 640px) { .fdm-overlay { align-items: center; } }

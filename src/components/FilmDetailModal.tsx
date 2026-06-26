@@ -15,29 +15,10 @@ interface Props {
 
 type TrailerState = 'idle' | 'loading' | 'ready' | 'none';
 
-// Scroll lock compatible iOS Safari: freezes the body at current scroll position
-function lockBody(): () => void {
-  const scrollY = window.scrollY;
-  document.body.style.position   = 'fixed';
-  document.body.style.top        = `-${scrollY}px`;
-  document.body.style.width      = '100%';
-  document.body.style.overflowY  = 'scroll';
-  return () => {
-    document.body.style.position  = '';
-    document.body.style.top       = '';
-    document.body.style.width     = '';
-    document.body.style.overflowY = '';
-    window.scrollTo(0, scrollY);
-  };
-}
-
 export function FilmDetailModal({ item, reaction, onAction, onClose }: Props) {
   const [trailerState, setTrailerState] = useState<TrailerState>('idle');
   const [trailerKey,   setTrailerKey]   = useState<string | null>(null);
   const [heroFailed,   setHeroFailed]   = useState(false);
-
-  // Scroll lock (iOS-compatible: position:fixed technique)
-  useEffect(() => lockBody(), []);
 
   // Fermer sur Escape
   useEffect(() => {
