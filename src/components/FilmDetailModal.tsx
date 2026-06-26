@@ -15,16 +15,29 @@ interface Props {
 
 type TrailerState = 'idle' | 'loading' | 'ready' | 'none';
 
+// Scroll lock compatible iOS Safari: freezes the body at current scroll position
+function lockBody(): () => void {
+  const scrollY = window.scrollY;
+  document.body.style.position   = 'fixed';
+  document.body.style.top        = `-${scrollY}px`;
+  document.body.style.width      = '100%';
+  document.body.style.overflowY  = 'scroll';
+  return () => {
+    document.body.style.position  = '';
+    document.body.style.top       = '';
+    document.body.style.width     = '';
+    document.body.style.overflowY = '';
+    window.scrollTo(0, scrollY);
+  };
+}
+
 export function FilmDetailModal({ item, reaction, onAction, onClose }: Props) {
   const [trailerState, setTrailerState] = useState<TrailerState>('idle');
   const [trailerKey,   setTrailerKey]   = useState<string | null>(null);
   const [heroFailed,   setHeroFailed]   = useState(false);
 
-  // Scroll lock
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = ''; };
-  }, []);
+  // Scroll lock (iOS-compatible: position:fixed technique)
+  useEffect(() => lockBody(), []);
 
   // Fermer sur Escape
   useEffect(() => {
@@ -145,27 +158,26 @@ export function FilmDetailModal({ item, reaction, onAction, onClose }: Props) {
             )}
 
             {trailerState === 'ready' && trailerKey && (
-              <a
-                href={`https://www.youtube.com/watch?v=${trailerKey}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="fdm-trailer-thumb"
-                onClick={e => e.stopPropagation()}
-              >
-                <img
-                  src={`https://img.youtube.com/vi/${trailerKey}/maxresdefault.jpg`}
-                  alt={`Trailer — ${item.title}`}
-                  className="fdm-trailer-thumb-img"
-                  onError={e => {
-                    (e.target as HTMLImageElement).src =
-                      `https://img.youtube.com/vi/${trailerKey}/hqdefault.jpg`;
-                  }}
-                />
-                <div className="fdm-trailer-play-overlay">
-                  <div className="fdm-trailer-play-btn">▶</div>
-                  <span className="fdm-trailer-open-hint">Ouvrir sur YouTube ↗</span>
+              <div>
+                <div className="fdm-trailer-wrap">
+                  <iframe
+                    src={`https://www.youtube.com/embed/${trailerKey}?rel=0&modestbranding=1&autoplay=1&playsinline=1`}
+                    title={`Trailer — ${item.title}`}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    className="fdm-trailer-iframe"
+                  />
                 </div>
-              </a>
+                <a
+                  href={`https://www.youtube.com/watch?v=${trailerKey}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="fdm-yt-link"
+                  onClick={e => e.stopPropagation()}
+                >
+                  ↗ Ouvrir sur YouTube
+                </a>
+              </div>
             )}
 
             {trailerState === 'none' && (
