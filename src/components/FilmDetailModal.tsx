@@ -57,11 +57,16 @@ export function FilmDetailModal({ item, reaction, onAction, onClose }: Props) {
   return (
     <div
       className="fdm-overlay"
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
       role="dialog"
       aria-modal="true"
       aria-label={`Détails de ${item.title}`}
     >
+      {/* ── Barre retour ── */}
+      <button className="fdm-back-btn" onClick={onClose}>
+        <span className="fdm-back-arrow">←</span>
+        Retour aux propositions
+      </button>
+
       <div className="fdm-panel">
         {/* ── Hero ── */}
         <div className="fdm-hero" style={{ background: item.posterColor }}>
@@ -74,7 +79,6 @@ export function FilmDetailModal({ item, reaction, onAction, onClose }: Props) {
             />
           )}
           <div className="fdm-hero-gradient" />
-          <button className="fdm-close" onClick={onClose} aria-label="Fermer">✕</button>
 
           <div className="fdm-hero-info">
             <span className="fdm-type-badge">
