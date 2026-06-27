@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import type { ScoredRecommendation, UserProfile, Mood } from '../types';
 import { getTrailerKey } from '../services/tmdbService';
 
@@ -54,7 +55,7 @@ export function FilmDetailModal({ item, reaction, onAction, onClose }: Props) {
     if (action !== 'like' || reaction === 'like') onClose();
   }
 
-  return (
+  return createPortal(
     <div
       className="fdm-overlay"
       role="dialog"
@@ -208,6 +209,7 @@ export function FilmDetailModal({ item, reaction, onAction, onClose }: Props) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
