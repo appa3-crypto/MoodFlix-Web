@@ -13,7 +13,7 @@ interface Props {
   onClose:   () => void;
 }
 
-type TrailerState = 'idle' | 'loading' | 'ready' | 'none';
+type TrailerState = 'idle' | 'loading' | 'thumb' | 'playing' | 'none';
 
 export function FilmDetailModal({ item, reaction, onAction, onClose }: Props) {
   const [trailerState, setTrailerState] = useState<TrailerState>('idle');
@@ -31,9 +31,11 @@ export function FilmDetailModal({ item, reaction, onAction, onClose }: Props) {
     if (!item.tmdbId) { setTrailerState('none'); return; }
     setTrailerState('loading');
     const key = await getTrailerKey(item.tmdbId, item.type === 'series');
-    if (key) { setTrailerKey(key); setTrailerState('ready'); }
+    if (key) { setTrailerKey(key); setTrailerState('thumb'); }
     else setTrailerState('none');
   }
+
+  function playTrailer() { setTrailerState('playing'); }
 
   const heroSrc = !heroFailed ? (item.backdropUrl ?? item.posterUrl ?? null) : null;
 
@@ -138,7 +140,27 @@ export function FilmDetailModal({ item, reaction, onAction, onClose }: Props) {
               </button>
             )}
 
-            {trailerState === 'ready' && trailerKey && (
+            {/* Miniature : 1 tap pour prévisualiser, 2e tap pour lire */}
+            {trailerState === 'thumb' && trailerKey && (
+              <button className="fdm-trailer-thumb" onClick={playTrailer} aria-label="Lancer le trailer">
+                <img
+                  src={`https://img.youtube.com/vi/${trailerKey}/maxresdefault.jpg`}
+                  alt={`Miniature — ${item.title}`}
+                  className="fdm-trailer-thumb-img"
+                  onError={e => {
+                    (e.target as HTMLImageElement).src =
+                      `https://img.youtube.com/vi/${trailerKey}/hqdefault.jpg`;
+                  }}
+                />
+                <div className="fdm-trailer-play-overlay">
+                  <div className="fdm-trailer-play-btn">▶</div>
+                  <span className="fdm-trailer-play-label">Lancer le trailer</span>
+                </div>
+              </button>
+            )}
+
+            {/* Lecteur intégré après tap sur la miniature */}
+            {trailerState === 'playing' && trailerKey && (
               <div>
                 <div className="fdm-trailer-wrap">
                   <iframe

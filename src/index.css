@@ -4345,8 +4345,6 @@ textarea {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  overflow: hidden;
-  touch-action: none;
   animation: fdm-fade-in 0.2s ease;
 }
 @media (min-width: 640px) { .fdm-overlay { align-items: center; } }
@@ -4363,7 +4361,8 @@ textarea {
   max-height: 92dvh;
   overflow-y: scroll;
   -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: auto;
   touch-action: pan-y;
   background: var(--bg-secondary);
   border-radius: 20px 20px 0 0;
@@ -4538,6 +4537,55 @@ textarea {
 .fdm-trailer-loading { opacity: 0.6; cursor: default; }
 .fdm-play-icon { font-size: 16px; }
 
+/* Thumbnail cliquable (état 'thumb') */
+.fdm-trailer-thumb {
+  display: block;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16/9;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  background: #000;
+}
+.fdm-trailer-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.fdm-trailer-play-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(0,0,0,0.30);
+}
+.fdm-trailer-play-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(239,68,68,0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  padding-left: 4px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.55);
+}
+.fdm-trailer-play-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+}
+
+/* Lecteur iframe (état 'playing') */
 .fdm-trailer-wrap {
   position: relative;
   width: 100%;
